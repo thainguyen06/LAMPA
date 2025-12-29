@@ -173,6 +173,7 @@ class MainActivity : BaseActivity(),
         private const val RESULT_VIMU_ERROR = 4
         private const val JS_SUCCESS = "SUCCESS"
         private const val JS_FAILURE = "FAILED"
+        private const val BROWSER_INIT_DELAY_MS = 500L // Delay to ensure browser is ready
         private const val IP4_DIG = "([01]?\\d?\\d|2[0-4]\\d|25[0-5])"
         private const val IP4_REGEX = "(${IP4_DIG}\\.){3}${IP4_DIG}"
         private const val IP6_DIG = "[0-9A-Fa-f]{1,4}"
@@ -1088,6 +1089,11 @@ class MainActivity : BaseActivity(),
         uri: Uri,
         delay: Long = 0L
     ) {
+        // Handle torrent/magnet intents
+        if (isTorrentIntent(intent, uri)) {
+            handleTorrentIntent(uri)
+            return
+        }
         if (uri.host?.contains("themoviedb.org") == true && uri.pathSegments.size >= 2) {
             val videoType = uri.pathSegments[0]
             val sid = "\\d+".toRegex().find(uri.pathSegments[1])?.value // Keep as String
@@ -1103,6 +1109,12 @@ class MainActivity : BaseActivity(),
             "GLOBALSEARCH" -> handleGlobalSearch(intent, uri, delay)
             else -> handleChannelIntent(uri, delay)
         }
+    }
+
+    // Helper function to check if intent is for torrent/magnet
+    private fun isTorrentIntent(intent: Intent, uri: Uri): Boolean {
+        return uri.scheme?.equals("magnet", ignoreCase = true) == true ||
+                intent.type?.equals("application/x-bittorrent", ignoreCase = true) == true
     }
 
     // Helper function to handle TMDB intents
@@ -1166,6 +1178,56 @@ class MainActivity : BaseActivity(),
             if (params.isNotEmpty()) {
                 lifecycleScope.launch {
                     openLampaContent(params, delay)
+                }
+            }
+        }
+    }
+
+    // Helper function to handle torrent/magnet intents
+    private fun handleTorrentIntent(uri: Uri) {
+        lifecycleScope.launch {
+            // Wait for browser to be ready. This delay ensures the LAMPA web interface
+            // has finished initializing before we attempt to inject JavaScript.
+            delay(BROWSER_INIT_DELAY_MS)
+            
+            val torrentUrl = uri.toString()
+            logDebug("Handling torrent intent: $torrentUrl")
+            
+            // Create JavaScript to open torrent in LAMPA using JSON.parse for safe parameter passing
+            val jsonPayload = JSONObject().apply {
+                put("url", "")
+                put("title", "Torrent")
+                put("component", "torrents")
+                if (torrentUrl.startsWith("magnet:", ignoreCase = true)) {
+                    put("magnet", torrentUrl)
+                } else {
+                    put("torrent", torrentUrl)
+                }
+            }.toString()
+            
+            // Use Base64 encoding for safe parameter passing to avoid injection issues
+            val encodedJson = android.util.Base64.encodeToString(
+                jsonPayload.toByteArray(),
+                android.util.Base64.NO_WRAP
+            )
+            
+            // Construct JavaScript to pass data to LAMPA
+            val js = """
+                if (window.Lampa && window.Lampa.Activity) {
+                    try {
+                        var decoded = atob('$encodedJson');
+                        window.Lampa.Activity.push(JSON.parse(decoded));
+                    } catch(e) {
+                        console.error('Torrent intent error:', e);
+                    }
+                } else {
+                    console.log('Lampa not ready for torrent');
+                }
+            """.trimIndent()
+            
+            runOnUiThread {
+                browser?.evaluateJavascript(js) { result ->
+                    logDebug("Torrent intent handled with result: $result")
                 }
             }
         }
