@@ -219,6 +219,18 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
     @Throws(JSONException::class)
     fun openTorrentLink(url: String, jsonString: String): Boolean {
         val jsonData = if (jsonString == "\"\"") JSONObject() else JSONObject(jsonString)
+        
+        mainActivity.runOnUiThread {
+            mainActivity.showTorrentPlayerDialog(url, jsonData)
+        }
+
+        return true
+    }
+
+    /**
+     * Open torrent in an external app (TorrServe, etc.)
+     */
+    fun openTorrentInExternalApp(url: String, jsonData: JSONObject) {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             if (url.startsWith("magnet", ignoreCase = true)) {
                 data = url.toUri()
@@ -247,14 +259,13 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
             }
         }
 
-        mainActivity.runOnUiThread {
-            try {
-                mainActivity.startActivity(intent)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to open torrent link", e)
-                App.toast(R.string.no_torrent_activity_found, true)
-            }
+        try {
+            mainActivity.startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to open torrent link", e)
+            App.toast(R.string.no_torrent_activity_found, true)
         }
+
         // Force update Recs to filter viewed
         CoroutineScope(Dispatchers.Default).launch {
             delay(UPDATE_DELAY)
@@ -264,8 +275,60 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
                 RecsService.updateRecs()
             }
         }
+    }
 
-        return true
+    /**
+     * Open torrent in LAMPA's built-in torrent component
+     */
+    fun openTorrentInLampa(url: String, jsonData: JSONObject) {
+        val torrentUrl = url
+        val title = jsonData.optString("title").takeIf { it.isNotEmpty() } ?: "Torrent"
+        
+        // Create JavaScript to open torrent in LAMPA
+        val jsonPayload = JSONObject().apply {
+            put("url", "")
+            put("title", title)
+            put("component", "torrents")
+            if (torrentUrl.startsWith("magnet:", ignoreCase = true)) {
+                put("magnet", torrentUrl)
+            } else {
+                put("torrent", torrentUrl)
+            }
+        }.toString()
+        
+        // Use Base64 encoding for safe parameter passing
+        val encodedJson = android.util.Base64.encodeToString(
+            jsonPayload.toByteArray(),
+            android.util.Base64.NO_WRAP
+        )
+        
+        // Construct JavaScript to pass data to LAMPA
+        val js = """
+            if (window.Lampa && window.Lampa.Activity) {
+                try {
+                    var decoded = atob('$encodedJson');
+                    window.Lampa.Activity.push(JSON.parse(decoded));
+                } catch(e) {
+                    console.error('Torrent intent error:', e);
+                }
+            } else {
+                console.log('Lampa not ready for torrent');
+            }
+        """.trimIndent()
+        
+        browser.evaluateJavascript(js) { result ->
+            debugLog(TAG, "Torrent opened in LAMPA with result: $result")
+        }
+
+        // Force update Recs to filter viewed
+        CoroutineScope(Dispatchers.Default).launch {
+            delay(UPDATE_DELAY)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                LampaChannels.updateRecsChannel()
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                RecsService.updateRecs()
+            }
+        }
     }
 
     @JavascriptInterface
