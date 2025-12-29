@@ -2,6 +2,9 @@
     <string name="no_activity_found">Немає додатка для відкриття цього типу посилань.</string>
     <string name="no_player_activity_found">Не знайдено відповідного мультимедійного програвача. Встановіть плеєр з Google Play або будь-якого іншого джерела. Ми рекомендуємо Just Player, Vimu Media Player, VLC.</string>
     <string name="no_torrent_activity_found">Немає додатка для відкриття торрент-посилань. Встановіть TorrServe або будь-який інший додаток, що працює з торрентами.</string>
+    <string name="torrent_player_title">Відкрити торрент за допомогою</string>
+    <string name="torrent_player_lampa">LAMPA (вбудований)</string>
+    <string name="torrent_player_external">Зовнішній додаток</string>
     <string name="no_youtube_activity_found">Немає додатка для відкриття посилань YouTube. Встановіть додаток YouTube.</string>
     <string name="no_launch_player">Обраний плеєр не підтримує відтворення цього відео</string>
     <string name="invalid_url">Введіть правильну адресу сайту, наприклад:\nhttp://lampa.mx</string>

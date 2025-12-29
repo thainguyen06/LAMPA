@@ -147,6 +147,7 @@ class MainActivity : BaseActivity(),
     private lateinit var speechLauncher: ActivityResultLauncher<Intent>
     private lateinit var progressIndicator: LinearProgressIndicator
     private lateinit var playerStateManager: PlayerStateManager
+    private var androidJS: AndroidJS? = null
 
     // Data class for menu items
     private data class MenuItem(
@@ -378,7 +379,8 @@ class MainActivity : BaseActivity(),
         browser?.apply {
             setUserAgentString(HttpHelper.userAgent)
             setBackgroundColor(ContextCompat.getColor(baseContext, R.color.lampa_background))
-            addJavascriptInterface(AndroidJS(this@MainActivity, this), "AndroidJS")
+            androidJS = AndroidJS(this@MainActivity, this)
+            addJavascriptInterface(androidJS!!, "AndroidJS")
         }
         logDebug("onBrowserInitCompleted LAMPA_URL: $LAMPA_URL")
         if (LAMPA_URL.isEmpty()) {
@@ -2961,6 +2963,33 @@ class MainActivity : BaseActivity(),
             logDebug("Failed to launch player: ${e.message}")
             App.toast(R.string.no_launch_player, true)
         }
+    }
+
+    fun showTorrentPlayerDialog(url: String, jsonData: JSONObject) {
+        val options = arrayOf(
+            getString(R.string.torrent_player_lampa),
+            getString(R.string.torrent_player_external)
+        )
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.torrent_player_title)
+            .setItems(options) { dialogInterface, which ->
+                dialogInterface.dismiss()
+                when (which) {
+                    0 -> { // Open in LAMPA
+                        androidJS?.openTorrentInLampa(url, jsonData)
+                    }
+                    1 -> { // Open in external app
+                        androidJS?.openTorrentInExternalApp(url, jsonData)
+                    }
+                }
+            }
+            .setNegativeButton(android.R.string.cancel) { dialog, _ ->
+                dialog.dismiss()
+            }
+            .create()
+
+        showFullScreenDialog(dialog)
     }
 
     private fun showPlayerSelectionDialog(
