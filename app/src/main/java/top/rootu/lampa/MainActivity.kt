@@ -1184,11 +1184,15 @@ class MainActivity : BaseActivity(),
     // Helper function to handle torrent/magnet intents
     private fun handleTorrentIntent(uri: Uri) {
         lifecycleScope.launch {
-            // Wait for browser to be ready
+            // Wait for browser to be ready. This delay ensures the LAMPA web interface
+            // has finished initializing before we attempt to inject JavaScript.
             delay(500)
             
             val torrentUrl = uri.toString()
             logDebug("Handling torrent intent: $torrentUrl")
+            
+            // Properly escape the URL for safe JavaScript injection using JSONObject
+            val escapedUrl = JSONObject().put("url", torrentUrl).getString("url")
             
             // Create JavaScript to open torrent in LAMPA
             val js = when {
@@ -1199,7 +1203,7 @@ class MainActivity : BaseActivity(),
                             "url: '', " +
                             "title: 'Torrent', " +
                             "component: 'torrents', " +
-                            "magnet: '${torrentUrl.replace("'", "\\'")}' " +
+                            "magnet: '$escapedUrl' " +
                             "}); " +
                             "} else { console.log('Lampa not ready for torrent'); }"
                 }
@@ -1210,7 +1214,7 @@ class MainActivity : BaseActivity(),
                             "url: '', " +
                             "title: 'Torrent', " +
                             "component: 'torrents', " +
-                            "torrent: '${torrentUrl.replace("'", "\\'")}' " +
+                            "torrent: '$escapedUrl' " +
                             "}); " +
                             "} else { console.log('Lampa not ready for torrent'); }"
                 }
