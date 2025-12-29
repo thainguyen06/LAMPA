@@ -1203,15 +1203,16 @@ class MainActivity : BaseActivity(),
                 }
             }.toString()
             
-            // Escape the JSON string for safe injection into JavaScript
-            val escapedJson = jsonPayload.replace("\\", "\\\\")
-                .replace("'", "\\'")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
+            // Use Base64 encoding for safe parameter passing to avoid injection issues
+            val encodedJson = android.util.Base64.encodeToString(
+                jsonPayload.toByteArray(),
+                android.util.Base64.NO_WRAP
+            )
             
             val js = "if (window.Lampa && window.Lampa.Activity) { " +
                     "try { " +
-                    "window.Lampa.Activity.push(JSON.parse('$escapedJson')); " +
+                    "var decoded = atob('$encodedJson'); " +
+                    "window.Lampa.Activity.push(JSON.parse(decoded)); " +
                     "} catch(e) { console.error('Torrent intent error:', e); } " +
                     "} else { console.log('Lampa not ready for torrent'); }"
             
