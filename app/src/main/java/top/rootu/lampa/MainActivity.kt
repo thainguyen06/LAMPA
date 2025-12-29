@@ -173,6 +173,7 @@ class MainActivity : BaseActivity(),
         private const val RESULT_VIMU_ERROR = 4
         private const val JS_SUCCESS = "SUCCESS"
         private const val JS_FAILURE = "FAILED"
+        private const val BROWSER_INIT_DELAY_MS = 500L // Delay to ensure browser is ready
         private const val IP4_DIG = "([01]?\\d?\\d|2[0-4]\\d|25[0-5])"
         private const val IP4_REGEX = "(${IP4_DIG}\\.){3}${IP4_DIG}"
         private const val IP6_DIG = "[0-9A-Fa-f]{1,4}"
@@ -1088,13 +1089,8 @@ class MainActivity : BaseActivity(),
         uri: Uri,
         delay: Long = 0L
     ) {
-        // Handle magnet links
-        if (uri.scheme?.equals("magnet", ignoreCase = true) == true) {
-            handleTorrentIntent(uri)
-            return
-        }
-        // Handle torrent files
-        if (intent.type?.equals("application/x-bittorrent", ignoreCase = true) == true) {
+        // Handle torrent/magnet intents
+        if (isTorrentIntent(intent, uri)) {
             handleTorrentIntent(uri)
             return
         }
@@ -1113,6 +1109,12 @@ class MainActivity : BaseActivity(),
             "GLOBALSEARCH" -> handleGlobalSearch(intent, uri, delay)
             else -> handleChannelIntent(uri, delay)
         }
+    }
+
+    // Helper function to check if intent is for torrent/magnet
+    private fun isTorrentIntent(intent: Intent, uri: Uri): Boolean {
+        return uri.scheme?.equals("magnet", ignoreCase = true) == true ||
+                intent.type?.equals("application/x-bittorrent", ignoreCase = true) == true
     }
 
     // Helper function to handle TMDB intents
@@ -1186,7 +1188,7 @@ class MainActivity : BaseActivity(),
         lifecycleScope.launch {
             // Wait for browser to be ready. This delay ensures the LAMPA web interface
             // has finished initializing before we attempt to inject JavaScript.
-            delay(500)
+            delay(BROWSER_INIT_DELAY_MS)
             
             val torrentUrl = uri.toString()
             logDebug("Handling torrent intent: $torrentUrl")
