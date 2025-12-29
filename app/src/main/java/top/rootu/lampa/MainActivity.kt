@@ -1088,6 +1088,16 @@ class MainActivity : BaseActivity(),
         uri: Uri,
         delay: Long = 0L
     ) {
+        // Handle magnet links
+        if (uri.scheme?.equals("magnet", ignoreCase = true) == true) {
+            handleTorrentIntent(uri)
+            return
+        }
+        // Handle torrent files
+        if (intent.type?.equals("application/x-bittorrent", ignoreCase = true) == true) {
+            handleTorrentIntent(uri)
+            return
+        }
         if (uri.host?.contains("themoviedb.org") == true && uri.pathSegments.size >= 2) {
             val videoType = uri.pathSegments[0]
             val sid = "\\d+".toRegex().find(uri.pathSegments[1])?.value // Keep as String
@@ -1166,6 +1176,49 @@ class MainActivity : BaseActivity(),
             if (params.isNotEmpty()) {
                 lifecycleScope.launch {
                     openLampaContent(params, delay)
+                }
+            }
+        }
+    }
+
+    // Helper function to handle torrent/magnet intents
+    private fun handleTorrentIntent(uri: Uri) {
+        lifecycleScope.launch {
+            // Wait for browser to be ready
+            delay(500)
+            
+            val torrentUrl = uri.toString()
+            logDebug("Handling torrent intent: $torrentUrl")
+            
+            // Create JavaScript to open torrent in LAMPA
+            val js = when {
+                torrentUrl.startsWith("magnet:", ignoreCase = true) -> {
+                    // For magnet links, pass to LAMPA's torrent handler
+                    "if (window.Lampa && window.Lampa.Activity) { " +
+                            "window.Lampa.Activity.push({ " +
+                            "url: '', " +
+                            "title: 'Torrent', " +
+                            "component: 'torrents', " +
+                            "magnet: '${torrentUrl.replace("'", "\\'")}' " +
+                            "}); " +
+                            "} else { console.log('Lampa not ready for torrent'); }"
+                }
+                else -> {
+                    // For .torrent files, pass URL to LAMPA's torrent handler
+                    "if (window.Lampa && window.Lampa.Activity) { " +
+                            "window.Lampa.Activity.push({ " +
+                            "url: '', " +
+                            "title: 'Torrent', " +
+                            "component: 'torrents', " +
+                            "torrent: '${torrentUrl.replace("'", "\\'")}' " +
+                            "}); " +
+                            "} else { console.log('Lampa not ready for torrent'); }"
+                }
+            }
+            
+            runOnUiThread {
+                browser?.evaluateJavascript(js) { result ->
+                    logDebug("Torrent intent handled with result: $result")
                 }
             }
         }
