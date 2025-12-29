@@ -174,6 +174,8 @@ class MainActivity : BaseActivity(),
         private const val JS_SUCCESS = "SUCCESS"
         private const val JS_FAILURE = "FAILED"
         private const val BROWSER_INIT_DELAY_MS = 500L // Delay to ensure browser is ready
+        private const val TORRENT_TITLE = "Torrent"
+        private const val TORRENT_COMPONENT = "torrents"
         private const val IP4_DIG = "([01]?\\d?\\d|2[0-4]\\d|25[0-5])"
         private const val IP4_REGEX = "(${IP4_DIG}\\.){3}${IP4_DIG}"
         private const val IP6_DIG = "[0-9A-Fa-f]{1,4}"
@@ -1196,8 +1198,8 @@ class MainActivity : BaseActivity(),
             // Create JavaScript to open torrent in LAMPA using JSON.parse for safe parameter passing
             val jsonPayload = JSONObject().apply {
                 put("url", "")
-                put("title", "Torrent")
-                put("component", "torrents")
+                put("title", TORRENT_TITLE)
+                put("component", TORRENT_COMPONENT)
                 if (torrentUrl.startsWith("magnet:", ignoreCase = true)) {
                     put("magnet", torrentUrl)
                 } else {
