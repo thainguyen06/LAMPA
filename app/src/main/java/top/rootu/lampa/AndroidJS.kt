@@ -259,11 +259,13 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
             }
         }
 
-        try {
-            mainActivity.startActivity(intent)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to open torrent link", e)
-            App.toast(R.string.no_torrent_activity_found, true)
+        mainActivity.runOnUiThread {
+            try {
+                mainActivity.startActivity(intent)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to open torrent link", e)
+                App.toast(R.string.no_torrent_activity_found, true)
+            }
         }
 
         // Force update Recs to filter viewed
@@ -281,7 +283,6 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
      * Open torrent in LAMPA's built-in torrent component
      */
     fun openTorrentInLampa(url: String, jsonData: JSONObject) {
-        val torrentUrl = url
         val title = jsonData.optString("title").takeIf { it.isNotEmpty() } ?: "Torrent"
         
         // Create JavaScript to open torrent in LAMPA
@@ -289,10 +290,10 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
             put("url", "")
             put("title", title)
             put("component", "torrents")
-            if (torrentUrl.startsWith("magnet:", ignoreCase = true)) {
-                put("magnet", torrentUrl)
+            if (url.startsWith("magnet:", ignoreCase = true)) {
+                put("magnet", url)
             } else {
-                put("torrent", torrentUrl)
+                put("torrent", url)
             }
         }.toString()
         
