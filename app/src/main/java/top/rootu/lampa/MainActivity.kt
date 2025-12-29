@@ -1211,12 +1211,19 @@ class MainActivity : BaseActivity(),
                 android.util.Base64.NO_WRAP
             )
             
-            val js = "if (window.Lampa && window.Lampa.Activity) { " +
-                    "try { " +
-                    "var decoded = atob('$encodedJson'); " +
-                    "window.Lampa.Activity.push(JSON.parse(decoded)); " +
-                    "} catch(e) { console.error('Torrent intent error:', e); } " +
-                    "} else { console.log('Lampa not ready for torrent'); }"
+            // Construct JavaScript to pass data to LAMPA
+            val js = """
+                if (window.Lampa && window.Lampa.Activity) {
+                    try {
+                        var decoded = atob('$encodedJson');
+                        window.Lampa.Activity.push(JSON.parse(decoded));
+                    } catch(e) {
+                        console.error('Torrent intent error:', e);
+                    }
+                } else {
+                    console.log('Lampa not ready for torrent');
+                }
+            """.trimIndent()
             
             runOnUiThread {
                 browser?.evaluateJavascript(js) { result ->
