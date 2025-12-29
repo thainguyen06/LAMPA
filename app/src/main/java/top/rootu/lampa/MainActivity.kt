@@ -1191,34 +1191,29 @@ class MainActivity : BaseActivity(),
             val torrentUrl = uri.toString()
             logDebug("Handling torrent intent: $torrentUrl")
             
-            // Properly escape the URL for safe JavaScript injection using JSONObject
-            val escapedUrl = JSONObject().put("url", torrentUrl).getString("url")
+            // Create JavaScript to open torrent in LAMPA using JSON.parse for safe parameter passing
+            val jsonPayload = JSONObject().apply {
+                put("url", "")
+                put("title", "Torrent")
+                put("component", "torrents")
+                if (torrentUrl.startsWith("magnet:", ignoreCase = true)) {
+                    put("magnet", torrentUrl)
+                } else {
+                    put("torrent", torrentUrl)
+                }
+            }.toString()
             
-            // Create JavaScript to open torrent in LAMPA
-            val js = when {
-                torrentUrl.startsWith("magnet:", ignoreCase = true) -> {
-                    // For magnet links, pass to LAMPA's torrent handler
-                    "if (window.Lampa && window.Lampa.Activity) { " +
-                            "window.Lampa.Activity.push({ " +
-                            "url: '', " +
-                            "title: 'Torrent', " +
-                            "component: 'torrents', " +
-                            "magnet: '$escapedUrl' " +
-                            "}); " +
-                            "} else { console.log('Lampa not ready for torrent'); }"
-                }
-                else -> {
-                    // For .torrent files, pass URL to LAMPA's torrent handler
-                    "if (window.Lampa && window.Lampa.Activity) { " +
-                            "window.Lampa.Activity.push({ " +
-                            "url: '', " +
-                            "title: 'Torrent', " +
-                            "component: 'torrents', " +
-                            "torrent: '$escapedUrl' " +
-                            "}); " +
-                            "} else { console.log('Lampa not ready for torrent'); }"
-                }
-            }
+            // Escape the JSON string for safe injection into JavaScript
+            val escapedJson = jsonPayload.replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+            
+            val js = "if (window.Lampa && window.Lampa.Activity) { " +
+                    "try { " +
+                    "window.Lampa.Activity.push(JSON.parse('$escapedJson')); " +
+                    "} catch(e) { console.error('Torrent intent error:', e); } " +
+                    "} else { console.log('Lampa not ready for torrent'); }"
             
             runOnUiThread {
                 browser?.evaluateJavascript(js) { result ->
