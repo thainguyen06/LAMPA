@@ -27,6 +27,7 @@ object Prefs {
     private const val APP_URL_HISTORY = "lampa_history"
     private const val APP_PLAYER = "player"
     private const val IPTV_PLAYER = "iptv_player"
+    private const val TORRENT_PLAYER = "torrent_player"
     private const val LAMPA_SOURCE = "source"
     private const val APP_BROWSER = "browser"
     private const val APP_LANG = "lang"
@@ -73,6 +74,10 @@ object Prefs {
     var Context.tvPlayer: String?
         get() = appPrefs.getString(IPTV_PLAYER, "")
         set(player) = appPrefs.edit().putString(IPTV_PLAYER, player).apply()
+
+    var Context.torrentPlayer: String?
+        get() = appPrefs.getString(TORRENT_PLAYER, "")
+        set(player) = appPrefs.edit().putString(TORRENT_PLAYER, player).apply()
 
     var Context.lampaSource: String
         get() = appPrefs.getString(LAMPA_SOURCE, "tmdb") ?: "tmdb"
