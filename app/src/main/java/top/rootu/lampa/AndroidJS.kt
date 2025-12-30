@@ -26,6 +26,7 @@ import top.rootu.lampa.helpers.Helpers.filterValidCubBookmarks
 import top.rootu.lampa.helpers.Helpers.isTvContentProviderAvailable
 import top.rootu.lampa.helpers.Helpers.isValidJson
 import top.rootu.lampa.helpers.Prefs.appLang
+import top.rootu.lampa.helpers.Prefs.appPlayer
 import top.rootu.lampa.helpers.Prefs.lampaSource
 import top.rootu.lampa.helpers.Prefs.PLAYER_EXTERNAL
 import top.rootu.lampa.helpers.Prefs.PLAYER_LAMPA
