@@ -629,9 +629,10 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
                 val jsonPayload = JSONObject().apply {
                     put("url", url)
                     put("title", title)
+                    put("component", "player")
                     // Copy other relevant fields from jsonObject
                     jsonObject.keys().forEach { key ->
-                        if (key != "url" && key != "title") {
+                        if (key != "url" && key != "title" && key != "component") {
                             put(key, jsonObject.get(key))
                         }
                     }
@@ -649,17 +650,17 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
                 // Note: Using Base64 encoding makes this safe from injection as the encoded
                 // string only contains alphanumeric characters (no special JS characters)
                 val js = """
-                    if (window.Lampa && window.Lampa.Player) {
+                    if (window.Lampa && window.Lampa.Activity) {
                         try {
                             var decoded = atob('$encodedJson');
                             var params = JSON.parse(decoded);
                             console.log('Playing video internally:', params.url);
-                            window.Lampa.Player.play(params);
+                            window.Lampa.Activity.push(params);
                         } catch(e) {
                             console.error('Internal player error:', e);
                         }
                     } else {
-                        console.log('Lampa Player not ready');
+                        console.log('Lampa not ready for playback');
                     }
                 """.trimIndent()
                 
