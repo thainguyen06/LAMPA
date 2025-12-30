@@ -232,8 +232,12 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
                     openTorrentInLampa(url, jsonData)
                 }
                 defaultTorrentPlayer == PLAYER_EXTERNAL -> {
-                    // User prefers external app
+                    // Legacy: User prefers external app (generic)
                     openTorrentInExternalApp(url, jsonData)
+                }
+                defaultTorrentPlayer.isNotEmpty() -> {
+                    // User has selected a specific external app
+                    openTorrentInSpecificApp(url, jsonData, defaultTorrentPlayer)
                 }
                 else -> {
                     // No preference set or empty, show dialog
@@ -282,6 +286,59 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
                 mainActivity.startActivity(intent)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to open torrent link", e)
+                App.toast(R.string.no_torrent_activity_found, true)
+            }
+        }
+
+        // Force update Recs to filter viewed
+        CoroutineScope(Dispatchers.Default).launch {
+            delay(UPDATE_DELAY)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                LampaChannels.updateRecsChannel()
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                RecsService.updateRecs()
+            }
+        }
+    }
+
+    /**
+     * Open torrent in a specific external app by package name
+     */
+    fun openTorrentInSpecificApp(url: String, jsonData: JSONObject, packageName: String) {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            if (url.startsWith("magnet", ignoreCase = true)) {
+                data = url.toUri()
+            } else {
+                setDataAndType(url.toUri(), "application/x-bittorrent")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            setPackage(packageName)
+            addCategory(Intent.CATEGORY_BROWSABLE)
+
+            jsonData.optString("title").takeIf { it.isNotEmpty() }?.let { title ->
+                putExtra("title", title)
+                putExtra("displayName", title)
+                putExtra("forcename", title)
+            }
+
+            jsonData.optString("poster").takeIf { it.isNotEmpty() }?.let { poster ->
+                putExtra("poster", poster)
+            }
+
+            jsonData.optString("media").takeIf { it.isNotEmpty() }?.let { category ->
+                putExtra("category", category)
+            }
+
+            jsonData.optJSONObject("data")?.let { dataObj ->
+                putExtra("data", dataObj.toString())
+            }
+        }
+
+        mainActivity.runOnUiThread {
+            try {
+                mainActivity.startActivity(intent)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to open torrent link with $packageName", e)
                 App.toast(R.string.no_torrent_activity_found, true)
             }
         }
