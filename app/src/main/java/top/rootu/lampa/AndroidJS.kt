@@ -27,6 +27,8 @@ import top.rootu.lampa.helpers.Helpers.isTvContentProviderAvailable
 import top.rootu.lampa.helpers.Helpers.isValidJson
 import top.rootu.lampa.helpers.Prefs.appLang
 import top.rootu.lampa.helpers.Prefs.lampaSource
+import top.rootu.lampa.helpers.Prefs.PLAYER_EXTERNAL
+import top.rootu.lampa.helpers.Prefs.PLAYER_LAMPA
 import top.rootu.lampa.helpers.Prefs.saveAccountBookmarks
 import top.rootu.lampa.helpers.Prefs.saveFavorite
 import top.rootu.lampa.helpers.Prefs.saveRecs
@@ -225,16 +227,16 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
             // Check if user has set a default torrent player preference
             val defaultTorrentPlayer = mainActivity.torrentPlayer
             when {
-                defaultTorrentPlayer == "lampa" -> {
+                defaultTorrentPlayer == PLAYER_LAMPA -> {
                     // User prefers LAMPA built-in player
                     openTorrentInLampa(url, jsonData)
                 }
-                defaultTorrentPlayer == "external" -> {
+                defaultTorrentPlayer == PLAYER_EXTERNAL -> {
                     // User prefers external app
                     openTorrentInExternalApp(url, jsonData)
                 }
                 else -> {
-                    // No preference set, show dialog
+                    // No preference set or empty, show dialog
                     mainActivity.showTorrentPlayerDialog(url, jsonData)
                 }
             }

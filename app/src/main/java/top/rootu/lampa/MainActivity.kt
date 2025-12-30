@@ -110,6 +110,8 @@ import top.rootu.lampa.helpers.Prefs.lastPlayedPrefs
 import top.rootu.lampa.helpers.Prefs.likeToRemove
 import top.rootu.lampa.helpers.Prefs.lookToRemove
 import top.rootu.lampa.helpers.Prefs.migrate
+import top.rootu.lampa.helpers.Prefs.PLAYER_EXTERNAL
+import top.rootu.lampa.helpers.Prefs.PLAYER_LAMPA
 import top.rootu.lampa.helpers.Prefs.schdToRemove
 import top.rootu.lampa.helpers.Prefs.thrwToRemove
 import top.rootu.lampa.helpers.Prefs.torrentPlayer
@@ -2981,7 +2983,7 @@ class MainActivity : BaseActivity(),
             .setCustomTitle(appTitleView)
             .setItems(options) { dialogInterface, which ->
                 val setDefaultPlayer = switch.isChecked
-                val selectedPlayer = if (which == 0) "lampa" else "external"
+                val selectedPlayer = if (which == 0) PLAYER_LAMPA else PLAYER_EXTERNAL
 
                 // Save preference if checkbox is checked
                 if (setDefaultPlayer) {

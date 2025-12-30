@@ -30,6 +30,10 @@ object Prefs {
     private const val TORRENT_PLAYER = "torrent_player"
     private const val LAMPA_SOURCE = "source"
     private const val APP_BROWSER = "browser"
+
+    // Constants for player types
+    const val PLAYER_LAMPA = "lampa"
+    const val PLAYER_EXTERNAL = "external"
     private const val APP_LANG = "lang"
     private const val TMDB_API_KEY = "tmdb_api_url"
     private const val TMDB_IMG_KEY = "tmdb_image_url"
@@ -75,8 +79,8 @@ object Prefs {
         get() = appPrefs.getString(IPTV_PLAYER, "")
         set(player) = appPrefs.edit().putString(IPTV_PLAYER, player).apply()
 
-    var Context.torrentPlayer: String?
-        get() = appPrefs.getString(TORRENT_PLAYER, "")
+    var Context.torrentPlayer: String
+        get() = appPrefs.getString(TORRENT_PLAYER, "") ?: ""
         set(player) = appPrefs.edit().putString(TORRENT_PLAYER, player).apply()
 
     var Context.lampaSource: String
