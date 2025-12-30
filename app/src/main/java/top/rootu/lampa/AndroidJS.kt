@@ -594,8 +594,8 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
                 debugLog(TAG, "Magnet link detected, launching external handler")
                 mainActivity.runOnUiThread { mainActivity.runPlayer(jsonObject) }
             }
-            link.startsWith("http://", ignoreCase = true) || 
-            link.startsWith("https://", ignoreCase = true) -> {
+            (link.startsWith("http://", ignoreCase = true) || 
+             link.startsWith("https://", ignoreCase = true)) -> {
                 // HTTP/HTTPS streams (e.g., TorrServe) - use internal WebView player
                 debugLog(TAG, "HTTP/HTTPS stream detected, using internal player")
                 playInWebView(link, jsonObject)
@@ -631,19 +631,23 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
                     put("title", title)
                     // Copy other relevant fields from jsonObject
                     jsonObject.keys().forEach { key ->
-                        if (key != "url" && key != "title" && jsonObject.has(key)) {
+                        if (key != "url" && key != "title") {
                             put(key, jsonObject.get(key))
                         }
                     }
                 }.toString()
                 
-                // Use Base64 encoding for safe parameter passing
+                // Use Base64 encoding for safe parameter passing to prevent injection attacks
+                // The Base64-encoded JSON is decoded client-side using atob(), ensuring the
+                // data structure is preserved and preventing any malicious script injection
                 val encodedJson = android.util.Base64.encodeToString(
                     jsonPayload.toByteArray(),
                     android.util.Base64.NO_WRAP
                 )
                 
                 // Construct JavaScript to trigger Lampa's internal player
+                // Note: Using Base64 encoding makes this safe from injection as the encoded
+                // string only contains alphanumeric characters (no special JS characters)
                 val js = """
                     if (window.Lampa && window.Lampa.Player) {
                         try {
