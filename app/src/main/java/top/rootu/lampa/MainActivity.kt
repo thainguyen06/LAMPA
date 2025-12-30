@@ -2991,7 +2991,7 @@ class MainActivity : BaseActivity(),
                 }
 
                 dialogInterface.dismiss()
-                
+
                 // Execute the selected action
                 when (which) {
                     0 -> { // Open in LAMPA

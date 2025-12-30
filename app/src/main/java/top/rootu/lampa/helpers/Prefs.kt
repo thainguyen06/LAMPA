@@ -80,7 +80,7 @@ object Prefs {
         set(player) = appPrefs.edit().putString(IPTV_PLAYER, player).apply()
 
     var Context.torrentPlayer: String
-        get() = appPrefs.getString(TORRENT_PLAYER, "")!!
+        get() = appPrefs.getString(TORRENT_PLAYER, "") ?: ""
         set(player) = appPrefs.edit().putString(TORRENT_PLAYER, player).apply()
 
     var Context.lampaSource: String
