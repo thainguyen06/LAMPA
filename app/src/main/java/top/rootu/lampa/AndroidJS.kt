@@ -360,6 +360,7 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
      */
     fun openTorrentInLampa(url: String, jsonData: JSONObject) {
         val title = jsonData.optString("title").takeIf { it.isNotEmpty() } ?: "Torrent"
+        val subtitleUrl = jsonData.optString("subtitle", "")
         
         // Create JavaScript to open torrent in LAMPA
         val jsonPayload = JSONObject().apply {
@@ -370,6 +371,9 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
                 put("magnet", url)
             } else {
                 put("torrent", url)
+            }
+            if (subtitleUrl.isNotEmpty()) {
+                put("subtitle", subtitleUrl)
             }
         }.toString()
         
@@ -620,7 +624,7 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
     }
 
     /**
-     * Play HTTP/HTTPS streams using native ExoPlayer in PlayerActivity
+     * Play HTTP/HTTPS streams using native LibVLC in PlayerActivity
      */
     private fun playInternalPlayer(url: String, jsonObject: JSONObject) {
         mainActivity.runOnUiThread {
@@ -684,16 +688,21 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
     }
     
     /**
-     * Launch the internal ExoPlayer activity
+     * Launch the internal LibVLC player activity
      */
     private fun launchInternalPlayer(url: String, jsonObject: JSONObject) {
         val title = jsonObject.optString("title", "Video")
+        val subtitleUrl = jsonObject.optString("subtitle", "")
+        
         val intent = Intent(mainActivity, PlayerActivity::class.java).apply {
             putExtra(PlayerActivity.EXTRA_VIDEO_URL, url)
             putExtra(PlayerActivity.EXTRA_VIDEO_TITLE, title)
+            if (subtitleUrl.isNotEmpty()) {
+                putExtra(PlayerActivity.EXTRA_SUBTITLE_URL, subtitleUrl)
+            }
         }
         mainActivity.startActivity(intent)
-        debugLog(TAG, "Launched PlayerActivity for: $url")
+        debugLog(TAG, "Launched PlayerActivity for: $url with subtitle: $subtitleUrl")
     }
 
     @JavascriptInterface

@@ -191,6 +191,9 @@ dependencies {
     implementation "com.google.android.exoplayer:exoplayer-core:$exoplayerVersion"
     //noinspection GradleDependency
     implementation "com.google.android.exoplayer:exoplayer-ui:$exoplayerVersion"
+    // LibVLC for advanced video playback with software decoding support
+    // Using 3.5.0 for better API 16+ compatibility
+    implementation 'org.videolan.android:libvlc-all:3.5.0'
     // crosswalk latest
     liteApi fileTree(dir: 'libs', include: ['xwalk_shared_library-23.53.589.4.aar'])
     ruStoreApi fileTree(dir: 'libs', include: ['xwalk_shared_library-23.53.589.4.aar'])
