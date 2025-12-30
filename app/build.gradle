@@ -185,6 +185,12 @@ dependencies {
     implementation 'org.conscrypt:conscrypt-android:2.5.3' // for TLS v1.3 on API < 29
     //noinspection GradleDependency 1.8.1 fails on build with old gradle
     implementation 'org.mozilla:rhino:1.7.15' // JavaScript to run PAC file to get correct proxies
+    // ExoPlayer for native video playback (2.19.1 is last version supporting API 16+)
+    def exoplayerVersion = '2.19.1'
+    //noinspection GradleDependency
+    implementation "com.google.android.exoplayer:exoplayer-core:$exoplayerVersion"
+    //noinspection GradleDependency
+    implementation "com.google.android.exoplayer:exoplayer-ui:$exoplayerVersion"
     // crosswalk latest
     liteApi fileTree(dir: 'libs', include: ['xwalk_shared_library-23.53.589.4.aar'])
     ruStoreApi fileTree(dir: 'libs', include: ['xwalk_shared_library-23.53.589.4.aar'])
