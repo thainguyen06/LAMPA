@@ -165,7 +165,7 @@ class PlayerActivity : BaseActivity() {
 
                 override fun onPlayerError(error: PlaybackException) {
                     Log.e(TAG, "Playback error: ${error.message}", error)
-                    App.toast("Playback error: ${error.message}", true)
+                    App.toast(R.string.playback_error, true)
                     finish()
                 }
             })
