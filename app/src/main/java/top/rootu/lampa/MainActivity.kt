@@ -110,8 +110,11 @@ import top.rootu.lampa.helpers.Prefs.lastPlayedPrefs
 import top.rootu.lampa.helpers.Prefs.likeToRemove
 import top.rootu.lampa.helpers.Prefs.lookToRemove
 import top.rootu.lampa.helpers.Prefs.migrate
+import top.rootu.lampa.helpers.Prefs.PLAYER_EXTERNAL
+import top.rootu.lampa.helpers.Prefs.PLAYER_LAMPA
 import top.rootu.lampa.helpers.Prefs.schdToRemove
 import top.rootu.lampa.helpers.Prefs.thrwToRemove
+import top.rootu.lampa.helpers.Prefs.torrentPlayer
 import top.rootu.lampa.helpers.Prefs.tvPlayer
 import top.rootu.lampa.helpers.Prefs.urlHistory
 import top.rootu.lampa.helpers.Prefs.viewToRemove
@@ -2971,10 +2974,25 @@ class MainActivity : BaseActivity(),
             getString(R.string.torrent_player_external)
         )
 
+        // Inflate custom title view with switch
+        @SuppressLint("InflateParams")
+        val appTitleView = LayoutInflater.from(this).inflate(R.layout.app_list_title, null)
+        val switch = appTitleView.findViewById<SwitchCompat>(R.id.useDefault)
+
         val dialog = AlertDialog.Builder(this)
-            .setTitle(R.string.torrent_player_title)
+            .setCustomTitle(appTitleView)
             .setItems(options) { dialogInterface, which ->
+                val setDefaultPlayer = switch.isChecked
+                val selectedPlayer = if (which == 0) PLAYER_LAMPA else PLAYER_EXTERNAL
+
+                // Save preference if checkbox is checked
+                if (setDefaultPlayer) {
+                    torrentPlayer = selectedPlayer
+                }
+
                 dialogInterface.dismiss()
+
+                // Execute the selected action
                 when (which) {
                     0 -> { // Open in LAMPA
                         androidJS?.openTorrentInLampa(url, jsonData)

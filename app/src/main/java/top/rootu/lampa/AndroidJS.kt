@@ -27,6 +27,8 @@ import top.rootu.lampa.helpers.Helpers.isTvContentProviderAvailable
 import top.rootu.lampa.helpers.Helpers.isValidJson
 import top.rootu.lampa.helpers.Prefs.appLang
 import top.rootu.lampa.helpers.Prefs.lampaSource
+import top.rootu.lampa.helpers.Prefs.PLAYER_EXTERNAL
+import top.rootu.lampa.helpers.Prefs.PLAYER_LAMPA
 import top.rootu.lampa.helpers.Prefs.saveAccountBookmarks
 import top.rootu.lampa.helpers.Prefs.saveFavorite
 import top.rootu.lampa.helpers.Prefs.saveRecs
@@ -34,6 +36,7 @@ import top.rootu.lampa.helpers.Prefs.storagePrefs
 import top.rootu.lampa.helpers.Prefs.syncEnabled
 import top.rootu.lampa.helpers.Prefs.tmdbApiUrl
 import top.rootu.lampa.helpers.Prefs.tmdbImgUrl
+import top.rootu.lampa.helpers.Prefs.torrentPlayer
 import top.rootu.lampa.net.Http
 import top.rootu.lampa.recs.RecsService
 import top.rootu.lampa.tmdb.TMDB
@@ -221,7 +224,22 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
         val jsonData = if (jsonString == "\"\"") JSONObject() else JSONObject(jsonString)
         
         mainActivity.runOnUiThread {
-            mainActivity.showTorrentPlayerDialog(url, jsonData)
+            // Check if user has set a default torrent player preference
+            val defaultTorrentPlayer = mainActivity.torrentPlayer
+            when {
+                defaultTorrentPlayer == PLAYER_LAMPA -> {
+                    // User prefers LAMPA built-in player
+                    openTorrentInLampa(url, jsonData)
+                }
+                defaultTorrentPlayer == PLAYER_EXTERNAL -> {
+                    // User prefers external app
+                    openTorrentInExternalApp(url, jsonData)
+                }
+                else -> {
+                    // No preference set or empty, show dialog
+                    mainActivity.showTorrentPlayerDialog(url, jsonData)
+                }
+            }
         }
 
         return true
@@ -372,6 +390,15 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
         mainActivity.runOnUiThread {
             mainActivity.setPlayerPackage("", false)
             mainActivity.setPlayerPackage("", true)
+            App.toast(R.string.select_player_reset)
+        }
+    }
+
+    @JavascriptInterface
+    @org.xwalk.core.JavascriptInterface
+    fun clearDefaultTorrentPlayer() {
+        mainActivity.runOnUiThread {
+            mainActivity.torrentPlayer = ""
             App.toast(R.string.select_player_reset)
         }
     }
