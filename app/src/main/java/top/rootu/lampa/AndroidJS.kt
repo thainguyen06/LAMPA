@@ -587,7 +587,25 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
             JSONObject().apply { putSafe("url", link) }
         }
 
-        mainActivity.runOnUiThread { mainActivity.runPlayer(jsonObject) }
+        // Check URL scheme to determine playback method
+        when {
+            link.startsWith("magnet:", ignoreCase = true) -> {
+                // Magnet links - launch external torrent handler
+                debugLog(TAG, "Magnet link detected, launching external handler")
+                mainActivity.runOnUiThread { mainActivity.runPlayer(jsonObject) }
+            }
+            (link.startsWith("http://", ignoreCase = true) || 
+             link.startsWith("https://", ignoreCase = true)) -> {
+                // HTTP/HTTPS streams (e.g., TorrServe) - use internal WebView player
+                debugLog(TAG, "HTTP/HTTPS stream detected, using internal player")
+                playInWebView(link, jsonObject)
+            }
+            else -> {
+                // Other protocols - use default behavior (external player)
+                debugLog(TAG, "Unknown protocol, using external player")
+                mainActivity.runOnUiThread { mainActivity.runPlayer(jsonObject) }
+            }
+        }
 
         // Force update Recs to filter viewed
         CoroutineScope(Dispatchers.Default).launch {
@@ -596,6 +614,62 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
                 LampaChannels.updateRecsChannel()
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 RecsService.updateRecs()
+            }
+        }
+    }
+
+    /**
+     * Play HTTP/HTTPS streams directly in the WebView using Lampa's internal player
+     */
+    private fun playInWebView(url: String, jsonObject: JSONObject) {
+        mainActivity.runOnUiThread {
+            try {
+                // Pass the video URL and metadata to Lampa's internal player via JavaScript
+                val title = jsonObject.optString("title", "Video")
+                val jsonPayload = JSONObject().apply {
+                    put("url", url)
+                    put("title", title)
+                    // Copy other relevant fields from jsonObject
+                    jsonObject.keys().forEach { key ->
+                        if (key != "url" && key != "title") {
+                            put(key, jsonObject.get(key))
+                        }
+                    }
+                }.toString()
+                
+                // Use Base64 encoding for safe parameter passing to prevent injection attacks
+                // The Base64-encoded JSON is decoded client-side using atob(), ensuring the
+                // data structure is preserved and preventing any malicious script injection
+                val encodedJson = android.util.Base64.encodeToString(
+                    jsonPayload.toByteArray(),
+                    android.util.Base64.NO_WRAP
+                )
+                
+                // Construct JavaScript to trigger Lampa's internal player
+                // Note: Using Base64 encoding makes this safe from injection as the encoded
+                // string only contains alphanumeric characters (no special JS characters)
+                val js = """
+                    if (window.Lampa && window.Lampa.Player) {
+                        try {
+                            var decoded = atob('$encodedJson');
+                            var params = JSON.parse(decoded);
+                            console.log('Playing video internally:', params.url);
+                            window.Lampa.Player.play(params);
+                        } catch(e) {
+                            console.error('Internal player error:', e);
+                        }
+                    } else {
+                        console.log('Lampa Player not ready');
+                    }
+                """.trimIndent()
+                
+                browser.evaluateJavascript(js) { result ->
+                    debugLog(TAG, "Internal player triggered with result: $result")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to play in WebView", e)
+                // Fallback to external player on error
+                mainActivity.runPlayer(jsonObject)
             }
         }
     }
