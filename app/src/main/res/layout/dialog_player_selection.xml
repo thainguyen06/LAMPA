@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_dialog_rounded"
+    android:padding="24dp">
+
+    <!-- Dialog Title -->
+    <TextView
+        android:id="@+id/dialog_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/select_player"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Play with Lampa (Internal) Button -->
+    <Button
+        android:id="@+id/btn_lampa_player"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/play_lampa_internal"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:background="@drawable/bg_button_dialog"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp"
+        android:textAllCaps="false" />
+
+    <!-- Play with External App Button -->
+    <Button
+        android:id="@+id/btn_external_player"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/play_external_app"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:background="@drawable/bg_button_dialog"
+        android:padding="12dp"
+        android:layout_marginBottom="16dp"
+        android:textAllCaps="false" />
+
+    <!-- Remember Choice Checkbox -->
+    <CheckBox
+        android:id="@+id/checkbox_remember"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/use_as_default"
+        android:textColor="#CCCCCC"
+        android:textSize="14sp"
+        android:buttonTint="#FFFFFF" />
+
+</LinearLayout>
