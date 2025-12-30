@@ -624,19 +624,75 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
     private fun playInternalPlayer(url: String, jsonObject: JSONObject) {
         mainActivity.runOnUiThread {
             try {
-                val title = jsonObject.optString("title", "Video")
-                val intent = Intent(mainActivity, PlayerActivity::class.java).apply {
-                    putExtra(PlayerActivity.EXTRA_VIDEO_URL, url)
-                    putExtra(PlayerActivity.EXTRA_VIDEO_TITLE, title)
+                // Check if user has set a preference for video player
+                val videoPlayerPref = mainActivity.appPlayer
+                
+                when {
+                    videoPlayerPref == PLAYER_LAMPA -> {
+                        // User prefers internal player
+                        launchInternalPlayer(url, jsonObject)
+                    }
+                    videoPlayerPref?.isNotEmpty() == true -> {
+                        // User has a specific external player preference
+                        mainActivity.runPlayer(jsonObject)
+                    }
+                    else -> {
+                        // No preference set, show dialog
+                        showPlayerSelectionDialog(url, jsonObject)
+                    }
                 }
-                mainActivity.startActivity(intent)
-                debugLog(TAG, "Launched PlayerActivity for: $url")
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to launch PlayerActivity", e)
+                Log.e(TAG, "Failed to launch player", e)
                 // Fallback to external player on error
                 mainActivity.runPlayer(jsonObject)
             }
         }
+    }
+    
+    /**
+     * Show custom dialog for player selection
+     */
+    private fun showPlayerSelectionDialog(url: String, jsonObject: JSONObject) {
+        val dialog = android.app.Dialog(mainActivity, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        dialog.setContentView(R.layout.dialog_player_selection)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        
+        val lampaButton = dialog.findViewById<android.widget.Button>(R.id.btn_lampa_player)
+        val externalButton = dialog.findViewById<android.widget.Button>(R.id.btn_external_player)
+        val rememberCheckbox = dialog.findViewById<android.widget.CheckBox>(R.id.checkbox_remember)
+        
+        lampaButton.setOnClickListener {
+            val remember = rememberCheckbox.isChecked
+            if (remember) {
+                mainActivity.appPlayer = PLAYER_LAMPA
+            }
+            dialog.dismiss()
+            launchInternalPlayer(url, jsonObject)
+        }
+        
+        externalButton.setOnClickListener {
+            val remember = rememberCheckbox.isChecked
+            if (remember) {
+                mainActivity.appPlayer = PLAYER_EXTERNAL
+            }
+            dialog.dismiss()
+            mainActivity.runPlayer(jsonObject)
+        }
+        
+        dialog.show()
+    }
+    
+    /**
+     * Launch the internal ExoPlayer activity
+     */
+    private fun launchInternalPlayer(url: String, jsonObject: JSONObject) {
+        val title = jsonObject.optString("title", "Video")
+        val intent = Intent(mainActivity, PlayerActivity::class.java).apply {
+            putExtra(PlayerActivity.EXTRA_VIDEO_URL, url)
+            putExtra(PlayerActivity.EXTRA_VIDEO_TITLE, title)
+        }
+        mainActivity.startActivity(intent)
+        debugLog(TAG, "Launched PlayerActivity for: $url")
     }
 
     @JavascriptInterface

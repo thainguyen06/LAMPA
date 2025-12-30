@@ -1,6 +1,7 @@
 package top.rootu.lampa
 
 import android.annotation.SuppressLint
+import android.app.Dialog
 import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
@@ -9,11 +10,18 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.widget.Button
+import android.widget.ImageButton
+import android.widget.RadioButton
+import android.widget.RadioGroup
+import android.widget.TextView
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
-import com.google.android.exoplayer2.ui.PlayerView
+import com.google.android.exoplayer2.Tracks
+import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
+import com.google.android.exoplayer2.ui.StyledPlayerView
 import com.google.android.exoplayer2.util.Util
 
 /**
@@ -22,6 +30,10 @@ import com.google.android.exoplayer2.util.Util
  * This activity provides native video playback for HTTP/HTTPS streams,
  * particularly for handling .mkv files that cannot be played in WebView.
  * 
+ * Features:
+ * - Subtitle and Audio track selection
+ * - Custom HTML-like UI with track selection dialog
+ * 
  * Usage:
  * - Pass video URL via Intent extra: EXTRA_VIDEO_URL
  * - Optionally pass video title: EXTRA_VIDEO_TITLE
@@ -29,7 +41,8 @@ import com.google.android.exoplayer2.util.Util
 class PlayerActivity : BaseActivity() {
 
     private var player: ExoPlayer? = null
-    private var playerView: PlayerView? = null
+    private var playerView: StyledPlayerView? = null
+    private var trackSelector: DefaultTrackSelector? = null
     private var playWhenReady = true
     private var currentPosition = 0L
     private var currentMediaItemIndex = 0
@@ -68,6 +81,9 @@ class PlayerActivity : BaseActivity() {
         if (!videoTitle.isNullOrEmpty()) {
             Log.d(TAG, "Video title: $videoTitle")
         }
+        
+        // Set up track selection button click listener
+        setupTrackSelectionButton()
     }
 
     override fun onStart() {
@@ -126,13 +142,32 @@ class PlayerActivity : BaseActivity() {
         }
     }
 
+    private fun setupTrackSelectionButton() {
+        playerView?.findViewById<ImageButton>(R.id.exo_track_selection)?.setOnClickListener {
+            showTrackSelectionDialog()
+        }
+        
+        // Set video title if available
+        val videoTitle = intent.getStringExtra(EXTRA_VIDEO_TITLE)
+        if (!videoTitle.isNullOrEmpty()) {
+            playerView?.findViewById<TextView>(R.id.exo_title)?.text = videoTitle
+        }
+    }
+
     private fun initializePlayer() {
         if (player != null) return
 
         val videoUrl = intent.getStringExtra(EXTRA_VIDEO_URL) ?: return
 
-        // Create ExoPlayer instance
-        player = ExoPlayer.Builder(this).build().also { exoPlayer ->
+        // Create track selector for managing audio and subtitle tracks
+        trackSelector = DefaultTrackSelector(this).apply {
+            setParameters(buildUponParameters().setMaxVideoSizeSd())
+        }
+
+        // Create ExoPlayer instance with track selector
+        player = ExoPlayer.Builder(this)
+            .setTrackSelector(trackSelector!!)
+            .build().also { exoPlayer ->
             playerView?.player = exoPlayer
 
             // Create media item from URL
@@ -168,10 +203,220 @@ class PlayerActivity : BaseActivity() {
                     App.toast(R.string.playback_error, true)
                     finish()
                 }
+                
+                override fun onTracksChanged(tracks: Tracks) {
+                    Log.d(TAG, "Tracks changed - Audio: ${tracks.containsType(com.google.android.exoplayer2.C.TRACK_TYPE_AUDIO)}, Text: ${tracks.containsType(com.google.android.exoplayer2.C.TRACK_TYPE_TEXT)}")
+                }
             })
 
             // Prepare the player
             exoPlayer.prepare()
+        }
+        
+        // Re-setup track selection button after player is initialized
+        setupTrackSelectionButton()
+    }
+
+    private fun showTrackSelectionDialog() {
+        val exoPlayer = player ?: return
+        val selector = trackSelector ?: return
+        
+        val dialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        dialog.setContentView(R.layout.dialog_track_selection)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        
+        val audioGroup = dialog.findViewById<RadioGroup>(R.id.audio_tracks_group)
+        val subtitleGroup = dialog.findViewById<RadioGroup>(R.id.subtitle_tracks_group)
+        val closeButton = dialog.findViewById<Button>(R.id.btn_close_tracks)
+        
+        // Get current tracks
+        val currentTracks = exoPlayer.currentTracks
+        val parameters = selector.parameters
+        
+        // Populate audio tracks
+        populateAudioTracks(audioGroup, currentTracks, parameters)
+        
+        // Populate subtitle tracks
+        populateSubtitleTracks(subtitleGroup, currentTracks, parameters)
+        
+        // Handle audio track selection
+        audioGroup.setOnCheckedChangeListener { _, checkedId ->
+            val trackIndex = checkedId - 1000 // Offset for audio track IDs
+            selectAudioTrack(trackIndex)
+        }
+        
+        // Handle subtitle track selection
+        subtitleGroup.setOnCheckedChangeListener { _, checkedId ->
+            val trackIndex = checkedId - 2000 // Offset for subtitle track IDs
+            selectSubtitleTrack(trackIndex)
+        }
+        
+        closeButton.setOnClickListener {
+            dialog.dismiss()
+        }
+        
+        dialog.show()
+    }
+    
+    private fun populateAudioTracks(audioGroup: RadioGroup, tracks: Tracks, parameters: DefaultTrackSelector.Parameters) {
+        audioGroup.removeAllViews()
+        
+        var audioTrackIndex = 0
+        var hasAudioTracks = false
+        
+        for (trackGroupInfo in tracks.groups) {
+            if (trackGroupInfo.type == com.google.android.exoplayer2.C.TRACK_TYPE_AUDIO) {
+                hasAudioTracks = true
+                val trackGroup = trackGroupInfo.mediaTrackGroup
+                
+                for (i in 0 until trackGroup.length) {
+                    val format = trackGroup.getFormat(i)
+                    val trackName = format.language ?: getString(R.string.track_unknown)
+                    
+                    val radioButton = RadioButton(this).apply {
+                        id = 1000 + audioTrackIndex
+                        text = trackName
+                        textSize = 16f
+                        setTextColor(0xFFFFFFFF.toInt())
+                        isChecked = trackGroupInfo.isTrackSelected(i)
+                    }
+                    audioGroup.addView(radioButton)
+                    audioTrackIndex++
+                }
+            }
+        }
+        
+        if (!hasAudioTracks) {
+            val noTracksText = TextView(this).apply {
+                text = getString(R.string.track_disabled)
+                textSize = 14f
+                setTextColor(0xFFCCCCCC.toInt())
+            }
+            audioGroup.addView(noTracksText)
+        }
+    }
+    
+    private fun populateSubtitleTracks(subtitleGroup: RadioGroup, tracks: Tracks, parameters: DefaultTrackSelector.Parameters) {
+        subtitleGroup.removeAllViews()
+        
+        // Add "Disabled" option for subtitles
+        val disabledButton = RadioButton(this).apply {
+            id = 2000
+            text = getString(R.string.track_disabled)
+            textSize = 16f
+            setTextColor(0xFFFFFFFF.toInt())
+        }
+        subtitleGroup.addView(disabledButton)
+        
+        var subtitleTrackIndex = 1
+        var hasSubtitleTracks = false
+        var anySubtitleSelected = false
+        
+        for (trackGroupInfo in tracks.groups) {
+            if (trackGroupInfo.type == com.google.android.exoplayer2.C.TRACK_TYPE_TEXT) {
+                hasSubtitleTracks = true
+                val trackGroup = trackGroupInfo.mediaTrackGroup
+                
+                for (i in 0 until trackGroup.length) {
+                    val format = trackGroup.getFormat(i)
+                    val trackName = format.language ?: getString(R.string.track_unknown)
+                    
+                    val isSelected = trackGroupInfo.isTrackSelected(i)
+                    if (isSelected) anySubtitleSelected = true
+                    
+                    val radioButton = RadioButton(this).apply {
+                        id = 2000 + subtitleTrackIndex
+                        text = trackName
+                        textSize = 16f
+                        setTextColor(0xFFFFFFFF.toInt())
+                        isChecked = isSelected
+                    }
+                    subtitleGroup.addView(radioButton)
+                    subtitleTrackIndex++
+                }
+            }
+        }
+        
+        // If no subtitle is selected and we have tracks, select disabled
+        if (hasSubtitleTracks && !anySubtitleSelected) {
+            disabledButton.isChecked = true
+        }
+        
+        if (!hasSubtitleTracks) {
+            disabledButton.isChecked = true
+        }
+    }
+    
+    private fun selectAudioTrack(trackIndex: Int) {
+        val selector = trackSelector ?: return
+        val exoPlayer = player ?: return
+        
+        Log.d(TAG, "Selecting audio track: $trackIndex")
+        
+        // Build parameters to override audio track selection
+        var currentTrackIndex = 0
+        for (trackGroupInfo in exoPlayer.currentTracks.groups) {
+            if (trackGroupInfo.type == com.google.android.exoplayer2.C.TRACK_TYPE_AUDIO) {
+                val trackGroup = trackGroupInfo.mediaTrackGroup
+                
+                if (trackIndex >= currentTrackIndex && trackIndex < currentTrackIndex + trackGroup.length) {
+                    val indexInGroup = trackIndex - currentTrackIndex
+                    
+                    selector.setParameters(
+                        selector.buildUponParameters()
+                            .clearOverridesOfType(com.google.android.exoplayer2.C.TRACK_TYPE_AUDIO)
+                            .addOverride(
+                                com.google.android.exoplayer2.trackselection.TrackSelectionOverride(
+                                    trackGroup, listOf(indexInGroup)
+                                )
+                            )
+                    )
+                    return
+                }
+                
+                currentTrackIndex += trackGroup.length
+            }
+        }
+    }
+    
+    private fun selectSubtitleTrack(trackIndex: Int) {
+        val selector = trackSelector ?: return
+        val exoPlayer = player ?: return
+        
+        Log.d(TAG, "Selecting subtitle track: $trackIndex")
+        
+        if (trackIndex == 0) {
+            // Disable subtitles
+            selector.setParameters(
+                selector.buildUponParameters()
+                    .clearOverridesOfType(com.google.android.exoplayer2.C.TRACK_TYPE_TEXT)
+            )
+            return
+        }
+        
+        // Enable specific subtitle track
+        var currentTrackIndex = 1 // Start at 1 because 0 is "disabled"
+        for (trackGroupInfo in exoPlayer.currentTracks.groups) {
+            if (trackGroupInfo.type == com.google.android.exoplayer2.C.TRACK_TYPE_TEXT) {
+                val trackGroup = trackGroupInfo.mediaTrackGroup
+                
+                if (trackIndex >= currentTrackIndex && trackIndex < currentTrackIndex + trackGroup.length) {
+                    val indexInGroup = trackIndex - currentTrackIndex
+                    
+                    selector.setParameters(
+                        selector.buildUponParameters()
+                            .clearOverridesOfType(com.google.android.exoplayer2.C.TRACK_TYPE_TEXT)
+                            .addOverride(
+                                com.google.android.exoplayer2.trackselection.TrackSelectionOverride(
+                                    trackGroup, listOf(indexInGroup)
+                                )
+                            )
+                    )
+                    return
+                }
+                
+                currentTrackIndex += trackGroup.length
+            }
         }
     }
 
@@ -183,5 +428,6 @@ class PlayerActivity : BaseActivity() {
             exoPlayer.release()
         }
         player = null
+        trackSelector = null
     }
 }

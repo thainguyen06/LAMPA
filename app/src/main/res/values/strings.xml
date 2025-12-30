@@ -136,4 +136,11 @@
     <string name="net_error_blocked_by_admin">Blocked by administrator</string>
     <string name="net_error_blocked_enrollment_check">Enrollment check pending</string>
     <string name="playback_error">Video playback failed</string>
+    <string name="play_lampa_internal">Play with Lampa (Internal)</string>
+    <string name="play_external_app">Play with External App (VLC/MX)</string>
+    <string name="track_selection_title">Track Selection</string>
+    <string name="audio_tracks">Audio Tracks</string>
+    <string name="subtitle_tracks">Subtitle Tracks</string>
+    <string name="track_disabled">Disabled</string>
+    <string name="track_unknown">Unknown</string>
 </resources>
