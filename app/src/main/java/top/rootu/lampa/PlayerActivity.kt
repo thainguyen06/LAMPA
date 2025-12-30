@@ -51,6 +51,10 @@ class PlayerActivity : BaseActivity() {
         private const val TAG = "PlayerActivity"
         const val EXTRA_VIDEO_URL = "video_url"
         const val EXTRA_VIDEO_TITLE = "video_title"
+        
+        // Radio button ID offsets for track selection
+        private const val AUDIO_TRACK_ID_OFFSET = 1000
+        private const val SUBTITLE_TRACK_ID_OFFSET = 2000
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -161,7 +165,8 @@ class PlayerActivity : BaseActivity() {
 
         // Create track selector for managing audio and subtitle tracks
         trackSelector = DefaultTrackSelector(this).apply {
-            setParameters(buildUponParameters().setMaxVideoSizeSd())
+            // Allow automatic quality selection based on network conditions
+            setParameters(buildUponParameters())
         }
 
         // Create ExoPlayer instance with track selector
@@ -221,7 +226,7 @@ class PlayerActivity : BaseActivity() {
         val exoPlayer = player ?: return
         val selector = trackSelector ?: return
         
-        val dialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val dialog = Dialog(this, R.style.Theme_AppCompat_Dialog)
         dialog.setContentView(R.layout.dialog_track_selection)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         
@@ -241,13 +246,13 @@ class PlayerActivity : BaseActivity() {
         
         // Handle audio track selection
         audioGroup.setOnCheckedChangeListener { _, checkedId ->
-            val trackIndex = checkedId - 1000 // Offset for audio track IDs
+            val trackIndex = checkedId - AUDIO_TRACK_ID_OFFSET
             selectAudioTrack(trackIndex)
         }
         
         // Handle subtitle track selection
         subtitleGroup.setOnCheckedChangeListener { _, checkedId ->
-            val trackIndex = checkedId - 2000 // Offset for subtitle track IDs
+            val trackIndex = checkedId - SUBTITLE_TRACK_ID_OFFSET
             selectSubtitleTrack(trackIndex)
         }
         
@@ -274,7 +279,7 @@ class PlayerActivity : BaseActivity() {
                     val trackName = format.language ?: getString(R.string.track_unknown)
                     
                     val radioButton = RadioButton(this).apply {
-                        id = 1000 + audioTrackIndex
+                        id = AUDIO_TRACK_ID_OFFSET + audioTrackIndex
                         text = trackName
                         textSize = 16f
                         setTextColor(0xFFFFFFFF.toInt())
@@ -301,7 +306,7 @@ class PlayerActivity : BaseActivity() {
         
         // Add "Disabled" option for subtitles
         val disabledButton = RadioButton(this).apply {
-            id = 2000
+            id = SUBTITLE_TRACK_ID_OFFSET
             text = getString(R.string.track_disabled)
             textSize = 16f
             setTextColor(0xFFFFFFFF.toInt())
@@ -325,7 +330,7 @@ class PlayerActivity : BaseActivity() {
                     if (isSelected) anySubtitleSelected = true
                     
                     val radioButton = RadioButton(this).apply {
-                        id = 2000 + subtitleTrackIndex
+                        id = SUBTITLE_TRACK_ID_OFFSET + subtitleTrackIndex
                         text = trackName
                         textSize = 16f
                         setTextColor(0xFFFFFFFF.toInt())
