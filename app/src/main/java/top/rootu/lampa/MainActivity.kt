@@ -74,6 +74,7 @@ import top.rootu.lampa.browser.Browser
 import top.rootu.lampa.browser.SysView
 import top.rootu.lampa.browser.XWalk
 import top.rootu.lampa.channels.ChannelManager.getChannelDisplayName
+import top.rootu.lampa.channels.LampaChannels
 import top.rootu.lampa.channels.WatchNext
 import top.rootu.lampa.content.LampaProvider
 import top.rootu.lampa.helpers.Backup
@@ -128,6 +129,7 @@ import top.rootu.lampa.helpers.isTvBox
 import top.rootu.lampa.models.LAMPA_CARD_KEY
 import top.rootu.lampa.models.LampaCard
 import top.rootu.lampa.net.HttpHelper
+import top.rootu.lampa.recs.RecsService
 import top.rootu.lampa.sched.Scheduler
 import java.util.Locale
 import java.util.regex.Pattern
@@ -178,6 +180,7 @@ class MainActivity : BaseActivity(),
         private const val JS_SUCCESS = "SUCCESS"
         private const val JS_FAILURE = "FAILED"
         private const val BROWSER_INIT_DELAY_MS = 500L // Delay to ensure browser is ready
+        private const val UPDATE_DELAY = 5000L // in ms, wait before update TV channel
         private const val IP4_DIG = "([01]?\\d?\\d|2[0-4]\\d|25[0-5])"
         private const val IP4_REGEX = "(${IP4_DIG}\\.){3}${IP4_DIG}"
         private const val IP6_DIG = "[0-9A-Fa-f]{1,4}"
@@ -2969,10 +2972,21 @@ class MainActivity : BaseActivity(),
     }
 
     fun showTorrentPlayerDialog(url: String, jsonData: JSONObject) {
-        val options = arrayOf(
-            getString(R.string.torrent_player_lampa),
-            getString(R.string.torrent_player_external)
-        )
+        // Create intent to query for torrent-handling apps
+        val queryIntent = Intent(Intent.ACTION_VIEW).apply {
+            if (url.startsWith("magnet", ignoreCase = true)) {
+                data = url.toUri()
+            } else {
+                setDataAndType(url.toUri(), "application/x-bittorrent")
+            }
+        }
+
+        // Get list of available torrent-handling apps
+        val availableApps = if (VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            packageManager.queryIntentActivities(queryIntent, PackageManager.MATCH_ALL)
+        } else {
+            packageManager.queryIntentActivities(queryIntent, 0)
+        }
 
         // Inflate custom title view with switch
         @SuppressLint("InflateParams")
@@ -2981,33 +2995,94 @@ class MainActivity : BaseActivity(),
 
         val dialog = AlertDialog.Builder(this)
             .setCustomTitle(appTitleView)
-            .setItems(options) { dialogInterface, which ->
-                val setDefaultPlayer = switch.isChecked
-                val selectedPlayer = if (which == 0) PLAYER_LAMPA else PLAYER_EXTERNAL
 
-                // Save preference if checkbox is checked
-                if (setDefaultPlayer) {
-                    torrentPlayer = selectedPlayer
+        if (availableApps.isEmpty()) {
+            // If no external apps available, only show LAMPA option
+            val options = arrayOf(getString(R.string.torrent_player_lampa))
+            dialog.setItems(options) { dialogInterface, _ ->
+                dialogInterface.dismiss()
+                androidJS?.openTorrentInLampa(url, jsonData)
+                if (switch.isChecked) {
+                    torrentPlayer = PLAYER_LAMPA
                 }
+            }
+        } else {
+            // Create adapter that includes LAMPA as first item
+            val adapter = TorrentPlayerAdapter(this, availableApps)
+            
+            dialog.setAdapter(adapter) { dialogInterface, which ->
+                val setDefaultPlayer = switch.isChecked
 
                 dialogInterface.dismiss()
 
-                // Execute the selected action
-                when (which) {
-                    0 -> { // Open in LAMPA
-                        androidJS?.openTorrentInLampa(url, jsonData)
+                if (which == 0) {
+                    // LAMPA built-in player selected
+                    if (setDefaultPlayer) {
+                        torrentPlayer = PLAYER_LAMPA
                     }
-                    1 -> { // Open in external app
-                        androidJS?.openTorrentInExternalApp(url, jsonData)
+                    androidJS?.openTorrentInLampa(url, jsonData)
+                } else {
+                    // External app selected (index - 1 because LAMPA is at index 0)
+                    val selectedPackage = adapter.getExternalAppPackage(which)
+                    if (setDefaultPlayer) {
+                        torrentPlayer = selectedPackage
+                    }
+                    
+                    // Create intent for the selected app
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        if (url.startsWith("magnet", ignoreCase = true)) {
+                            data = url.toUri()
+                        } else {
+                            setDataAndType(url.toUri(), "application/x-bittorrent")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        setPackage(selectedPackage)
+                        addCategory(Intent.CATEGORY_BROWSABLE)
+
+                        jsonData.optString("title").takeIf { it.isNotEmpty() }?.let { title ->
+                            putExtra("title", title)
+                            putExtra("displayName", title)
+                            putExtra("forcename", title)
+                        }
+
+                        jsonData.optString("poster").takeIf { it.isNotEmpty() }?.let { poster ->
+                            putExtra("poster", poster)
+                        }
+
+                        jsonData.optString("media").takeIf { it.isNotEmpty() }?.let { category ->
+                            putExtra("category", category)
+                        }
+
+                        jsonData.optJSONObject("data")?.let { dataObj ->
+                            putExtra("data", dataObj.toString())
+                        }
+                    }
+
+                    try {
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to open torrent link", e)
+                        App.toast(R.string.no_torrent_activity_found, true)
+                    }
+                    
+                    // Force update Recs to filter viewed
+                    CoroutineScope(Dispatchers.Default).launch {
+                        delay(UPDATE_DELAY)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            LampaChannels.updateRecsChannel()
+                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            RecsService.updateRecs()
+                        }
                     }
                 }
             }
-            .setNegativeButton(android.R.string.cancel) { dialog, _ ->
-                dialog.dismiss()
+        }
+
+        dialog.setNegativeButton(android.R.string.cancel) { dialogRef, _ ->
+                dialogRef.dismiss()
             }
             .create()
-
-        showFullScreenDialog(dialog)
+            .let { showFullScreenDialog(it) }
     }
 
     private fun showPlayerSelectionDialog(
