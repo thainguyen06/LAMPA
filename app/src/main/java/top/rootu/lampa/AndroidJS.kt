@@ -654,7 +654,7 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
      * Show custom dialog for player selection
      */
     private fun showPlayerSelectionDialog(url: String, jsonObject: JSONObject) {
-        val dialog = android.app.Dialog(mainActivity, R.style.Theme_AppCompat_Dialog)
+        val dialog = android.app.Dialog(mainActivity, androidx.appcompat.R.style.Theme_AppCompat_Dialog)
         dialog.setContentView(R.layout.dialog_player_selection)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         

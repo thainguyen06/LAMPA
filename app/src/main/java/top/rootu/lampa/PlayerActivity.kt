@@ -226,7 +226,7 @@ class PlayerActivity : BaseActivity() {
         val exoPlayer = player ?: return
         val selector = trackSelector ?: return
         
-        val dialog = Dialog(this, R.style.Theme_AppCompat_Dialog)
+        val dialog = Dialog(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog)
         dialog.setContentView(R.layout.dialog_track_selection)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         
