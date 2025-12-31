@@ -132,4 +132,8 @@
     <string name="net_error_network_changed">Сеть изменена</string>
     <string name="net_error_blocked_by_admin">Заблокировано администратором</string>
     <string name="net_error_blocked_enrollment_check">Ожидается проверка регистрации</string>
+    <!-- ExoPlayer control descriptions -->
+    <string name="exo_controls_rewind_description">Перемотка назад</string>
+    <string name="exo_controls_play_description">Воспроизведение</string>
+    <string name="exo_controls_fastforward_description">Перемотка вперед</string>
 </resources>

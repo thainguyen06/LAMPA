@@ -131,4 +131,8 @@
     <string name="net_error_network_changed">网络已更改</string>
     <string name="net_error_blocked_by_admin">被管理员阻止</string>
     <string name="net_error_blocked_enrollment_check">等待注册检查</string>
+    <!-- ExoPlayer control descriptions -->
+    <string name="exo_controls_rewind_description">后退</string>
+    <string name="exo_controls_play_description">播放</string>
+    <string name="exo_controls_fastforward_description">快进</string>
 </resources>
