@@ -32,6 +32,9 @@ jobs:
     - name: Grant execute permission
       run: chmod +x gradlew
 
+    - name: Stop existing Gradle daemons
+      run: ./gradlew --stop
+
     - name: Build signed APK
       env:
         KEYSTORE_FILE: release.jks
@@ -39,7 +42,7 @@ jobs:
         RELEASE_SIGN_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         RELEASE_SIGN_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: |
-        ./gradlew assembleRelease
+        ./gradlew assembleRelease --no-daemon
 
     - name: Upload GitHub Release
       uses: softprops/action-gh-release@v1
