@@ -168,4 +168,14 @@
     <string name="preferred_audio_language">Preferred Audio Language</string>
     <string name="subtitle_settings_gear">Subtitle Settings</string>
     <string name="subtitle_loaded">External subtitle loaded</string>
+    <!-- App Settings -->
+    <string name="app_settings_title">App Settings</string>
+    <string name="settings_player_section">Player Preferences</string>
+    <string name="settings_subtitle_section">Subtitle Settings</string>
+    <string name="settings_always_use_internal_player">Always use Internal Player (LibVLC)</string>
+    <string name="settings_opensubtitles_description">Configure OpenSubtitles API credentials for automatic subtitle downloads</string>
+    <string name="settings_api_key">API Key</string>
+    <string name="settings_username">Username</string>
+    <string name="settings_password">Password</string>
+    <string name="settings_saved">Settings saved successfully</string>
 </resources>
