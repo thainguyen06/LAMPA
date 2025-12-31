@@ -601,9 +601,11 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
             }
             (link.startsWith("http://", ignoreCase = true) || 
              link.startsWith("https://", ignoreCase = true)) -> {
-                // HTTP/HTTPS streams (e.g., TorrServe) - use internal ExoPlayer
-                debugLog(TAG, "HTTP/HTTPS stream detected, using internal ExoPlayer")
-                playInternalPlayer(link, jsonObject)
+                // HTTP/HTTPS streams - directly launch internal player (bypassing dialog)
+                debugLog(TAG, "HTTP/HTTPS stream detected, launching internal player directly")
+                mainActivity.runOnUiThread {
+                    launchInternalPlayer(link, jsonObject)
+                }
             }
             else -> {
                 // Other protocols - use default behavior (external player)
@@ -623,70 +625,6 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
         }
     }
 
-    /**
-     * Play HTTP/HTTPS streams using native LibVLC in PlayerActivity
-     */
-    private fun playInternalPlayer(url: String, jsonObject: JSONObject) {
-        mainActivity.runOnUiThread {
-            try {
-                // Check if user has set a preference for video player
-                val videoPlayerPref = mainActivity.appPlayer
-                
-                when {
-                    videoPlayerPref == PLAYER_LAMPA -> {
-                        // User prefers internal player
-                        launchInternalPlayer(url, jsonObject)
-                    }
-                    videoPlayerPref?.isNotEmpty() == true -> {
-                        // User has a specific external player preference
-                        mainActivity.runPlayer(jsonObject)
-                    }
-                    else -> {
-                        // No preference set, show dialog
-                        showPlayerSelectionDialog(url, jsonObject)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to launch player", e)
-                // Fallback to external player on error
-                mainActivity.runPlayer(jsonObject)
-            }
-        }
-    }
-    
-    /**
-     * Show custom dialog for player selection
-     */
-    private fun showPlayerSelectionDialog(url: String, jsonObject: JSONObject) {
-        val dialog = android.app.Dialog(mainActivity, androidx.appcompat.R.style.Theme_AppCompat_Dialog)
-        dialog.setContentView(R.layout.dialog_player_selection)
-        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-        
-        val lampaButton = dialog.findViewById<android.widget.Button>(R.id.btn_lampa_player)
-        val externalButton = dialog.findViewById<android.widget.Button>(R.id.btn_external_player)
-        val rememberCheckbox = dialog.findViewById<android.widget.CheckBox>(R.id.checkbox_remember)
-        
-        lampaButton.setOnClickListener {
-            val remember = rememberCheckbox.isChecked
-            if (remember) {
-                mainActivity.appPlayer = PLAYER_LAMPA
-            }
-            dialog.dismiss()
-            launchInternalPlayer(url, jsonObject)
-        }
-        
-        externalButton.setOnClickListener {
-            val remember = rememberCheckbox.isChecked
-            if (remember) {
-                mainActivity.appPlayer = PLAYER_EXTERNAL
-            }
-            dialog.dismiss()
-            mainActivity.runPlayer(jsonObject)
-        }
-        
-        dialog.show()
-    }
-    
     /**
      * Launch the internal LibVLC player activity
      */
