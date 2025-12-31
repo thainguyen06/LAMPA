@@ -4,10 +4,10 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.RequestBody
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -155,13 +155,14 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
                 put("file_id", result.id.toInt())
             }.toString()
             
+            val mediaType = MediaType.parse("application/json")
             val request = Request.Builder()
                 .url(result.downloadUrl)
                 .header("Api-Key", token)
                 .header("User-Agent", USER_AGENT)
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json")
-                .post(requestBody.toRequestBody("application/json".toMediaType()))
+                .post(RequestBody.create(mediaType, requestBody))
                 .build()
             
             val response = httpClient.newCall(request).execute()
@@ -250,12 +251,13 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
                 put("password", password)
             }.toString()
             
+            val mediaType = MediaType.parse("application/json")
             val request = Request.Builder()
                 .url("$API_BASE_URL/login")
                 .header("Content-Type", "application/json")
                 .header("User-Agent", USER_AGENT)
                 .header("Accept", "application/json")
-                .post(requestBody.toRequestBody("application/json".toMediaType()))
+                .post(RequestBody.create(mediaType, requestBody))
                 .build()
             
             val response = httpClient.newCall(request).execute()
