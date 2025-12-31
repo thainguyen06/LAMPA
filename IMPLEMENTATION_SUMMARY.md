@@ -59,10 +59,11 @@ import java.util.Locale
 - **Problem:** `spuTracks` was null because it was accessed too early
 - **Solution:** Attached `Media.EventListener` to the VLC Media object
 - **Event Handling:**
-  - Listen for `Media.Event.MetaChanged`
+  - Listen for ParsedChanged event (integer constant 3 in LibVLC 3.6.0)
   - Check if media is parsed using `isParsed()`
   - Only after parsing is complete, call `refreshTracks()` to populate subtitle list
   - Trigger auto-downloader after tracks are available
+- **Note:** LibVLC 3.6.0's Media class uses integer event constants, not a nested Event class like MediaPlayer
 
 #### Added Safety Features:
 - Created `refreshTracks()` function to handle track updates
@@ -71,7 +72,7 @@ import java.util.Locale
 - Added null checks in `autoSelectPreferredTracks()` for both audio and subtitle tracks
 
 #### Buffering Indication:
-- Added `Media.Event.Buffering` handling to show/hide loading spinner
+- Added MediaPlayer event handling for buffering status
 - Shows spinner when buffering < 100%
 - Hides spinner when buffering complete
 
@@ -238,3 +239,25 @@ All requirements from the problem statement have been successfully implemented:
 ✅ Gradle properties configured
 
 The implementation provides a solid foundation for video playback with advanced subtitle features and a modern user interface.
+
+## Post-Implementation Fix (December 31, 2025)
+
+### Issue: Compilation Error with Media.Event.MetaChanged
+**Problem:** The code referenced `Media.Event.MetaChanged` which doesn't exist in LibVLC 3.6.0, causing compilation errors.
+
+**Root Cause:** 
+- LibVLC 3.6.0's `Media` class uses integer event type constants (0, 1, 2, 3, etc.)
+- Unlike `MediaPlayer` which has a nested `Event` class with named constants (e.g., `MediaPlayer.Event.Playing`)
+- The `Media` class does not have a nested `Event` class
+
+**Solution:**
+1. Replaced `Media.Event.MetaChanged` with integer constant `3` (ParsedChanged event)
+2. Added named constant `MEDIA_EVENT_PARSED_CHANGED = 3` in companion object for maintainability
+3. Added explanatory comments about LibVLC 3.6.0 API structure
+4. Updated documentation to reflect the correct API usage
+
+**Files Modified:**
+- `app/src/main/java/top/rootu/lampa/PlayerActivity.kt` - Fixed Media event reference
+- `IMPLEMENTATION_SUMMARY.md` - Updated documentation
+
+This fix ensures the code compiles correctly with LibVLC 3.6.0 and maintains the intended functionality of detecting when media parsing is complete and tracks are available.
