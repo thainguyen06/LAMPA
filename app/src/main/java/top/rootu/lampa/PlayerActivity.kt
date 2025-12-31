@@ -96,6 +96,7 @@ class PlayerActivity : BaseActivity() {
         
         private const val SEEK_TIME_MS = 10000L // 10 seconds
         private const val CONTROLS_HIDE_DELAY = 3000L // 3 seconds
+        private const val TRACK_LOADING_DELAY_MS = 2000L // 2 seconds - Wait for tracks to load
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -648,7 +649,7 @@ class PlayerActivity : BaseActivity() {
         editPassword.setText(SubtitlePreferences.getPassword(this) ?: "")
         
         // Setup language spinners
-        val languages = arrayOf("en", "vi", "es", "fr", "de", "it", "pt", "ru", "ja", "ko", "zh")
+        val languages = resources.getStringArray(R.array.language_codes)
         val languageAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, languages)
         languageAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         
@@ -761,7 +762,7 @@ class PlayerActivity : BaseActivity() {
             } catch (e: Exception) {
                 Log.e(TAG, "Error auto-selecting tracks", e)
             }
-        }, 2000) // Wait 2 seconds for tracks to load
+        }, TRACK_LOADING_DELAY_MS)
     }
 
     override fun onResume() {
