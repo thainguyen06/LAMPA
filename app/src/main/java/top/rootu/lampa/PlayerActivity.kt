@@ -339,10 +339,11 @@ class PlayerActivity : BaseActivity() {
                 setEventListener { mediaEvent ->
                     when (mediaEvent.type) {
                         Media.Event.ParsedChanged -> {
-                            val parsedStatus = parsedStatus
-                            Log.d(TAG, "Media ParsedChanged: $parsedStatus")
+                            // Check if parsing is complete using isParsed()
+                            val isParsed = isParsed()
+                            Log.d(TAG, "Media ParsedChanged, isParsed: $isParsed")
                             
-                            if (parsedStatus == Media.ParsedStatus.Done) {
+                            if (isParsed) {
                                 Log.d(TAG, "Media parsing complete, tracks available")
                                 runOnUiThread {
                                     refreshTracks()
