@@ -305,12 +305,15 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
             
             var hash = fileSize
             
-            file.inputStream().use { stream ->
+            // Use RandomAccessFile for reliable positioning
+            java.io.RandomAccessFile(file, "r").use { raf ->
                 // Read first chunk
                 val firstBuffer = ByteArray(chunkSize.toInt())
-                var bytesRead = stream.read(firstBuffer)
+                raf.seek(0)
+                var bytesRead = raf.read(firstBuffer)
                 
                 if (bytesRead != chunkSize.toInt()) {
+                    Log.w(TAG, "Failed to read complete first chunk")
                     return null
                 }
                 
@@ -319,27 +322,12 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
                     hash += byteBuffer.long
                 }
                 
-                // Skip to last chunk with retry limit to avoid infinite loop
-                var remaining = fileSize - chunkSize * 2
-                var retries = 0
-                val maxRetries = 100
-                
-                while (remaining > 0 && retries < maxRetries) {
-                    val skipped = stream.skip(remaining)
-                    if (skipped <= 0) {
-                        retries++
-                        if (retries >= maxRetries) {
-                            Log.w(TAG, "Failed to skip to end of file after $maxRetries retries")
-                            return null
-                        }
-                    } else {
-                        remaining -= skipped
-                    }
-                }
+                // Seek to last chunk
+                raf.seek(fileSize - chunkSize)
                 
                 // Read last chunk into a new buffer
                 val lastBuffer = ByteArray(chunkSize.toInt())
-                bytesRead = stream.read(lastBuffer)
+                bytesRead = raf.read(lastBuffer)
                 
                 if (bytesRead != chunkSize.toInt()) {
                     Log.w(TAG, "Failed to read complete last chunk")
