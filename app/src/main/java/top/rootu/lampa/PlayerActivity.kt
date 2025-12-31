@@ -29,6 +29,9 @@ import org.videolan.libvlc.MediaPlayer
 import org.videolan.libvlc.util.VLCVideoLayout
 import top.rootu.lampa.helpers.SubtitleDownloader
 import top.rootu.lampa.helpers.SubtitlePreferences
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * PlayerActivity - Full-screen video player using LibVLC
@@ -406,8 +409,8 @@ class PlayerActivity : BaseActivity() {
     }
 
     private fun updateSystemTime() {
-        val currentTime = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
-            .format(java.util.Date())
+        val currentTime = SimpleDateFormat("HH:mm", Locale.getDefault())
+            .format(Date())
         tvSystemTime?.text = currentTime
     }
 
@@ -421,11 +424,11 @@ class PlayerActivity : BaseActivity() {
                 val currentSystemTimeMillis = System.currentTimeMillis()
                 val endsAtMillis = currentSystemTimeMillis + remainingTime
                 
-                val durationFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
-                val endsAtFormat = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                val durationFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+                val endsAtFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
                 
-                val durationText = durationFormat.format(java.util.Date(totalDuration))
-                val endsAtText = endsAtFormat.format(java.util.Date(endsAtMillis))
+                val durationText = durationFormat.format(Date(totalDuration))
+                val endsAtText = endsAtFormat.format(Date(endsAtMillis))
                 
                 tvDurationEnds?.text = "$durationText | Ends at $endsAtText"
             }
