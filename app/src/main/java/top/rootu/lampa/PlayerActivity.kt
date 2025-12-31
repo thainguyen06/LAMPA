@@ -104,6 +104,10 @@ class PlayerActivity : BaseActivity() {
         private const val CONTROLS_HIDE_DELAY = 3000L // 3 seconds
         private const val TRACK_LOADING_DELAY_MS = 2000L // 2 seconds - Wait for tracks to load
         private const val SYSTEM_TIME_UPDATE_INTERVAL = 60000L // 1 minute
+        
+        // LibVLC 3.6.0 Media event type constants
+        // Media class uses integer constants, not a nested Event class like MediaPlayer
+        private const val MEDIA_EVENT_PARSED_CHANGED = 3 // When media parsing is complete
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -338,7 +342,7 @@ class PlayerActivity : BaseActivity() {
                 // Add Media.EventListener to handle parsed tracks
                 setEventListener { mediaEvent ->
                     when (mediaEvent.type) {
-                        3 -> { // ParsedChanged event - when media parsing is complete
+                        MEDIA_EVENT_PARSED_CHANGED -> {
                             // Parsing is complete, tracks are now available
                             val isParsed = isParsed()
                             Log.d(TAG, "Media ParsedChanged, isParsed: $isParsed")
