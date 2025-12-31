@@ -57,13 +57,15 @@ class PlayerActivity : BaseActivity() {
     // UI components
     private var btnBack: ImageButton? = null
     private var btnPlayPause: ImageButton? = null
-    private var btnRewind: ImageButton? = null
-    private var btnForward: ImageButton? = null
-    private var btnAudioSubtitle: ImageButton? = null
+    private var btnSubtitleTrack: ImageButton? = null
+    private var btnAudioTrack: ImageButton? = null
+    private var btnAspectRatio: ImageButton? = null
     private var btnSubtitleSettings: ImageButton? = null
     private var seekBar: SeekBar? = null
-    private var timeCurrent: TextView? = null
-    private var timeTotal: TextView? = null
+    private var tvCurrentTime: TextView? = null
+    private var tvDurationEnds: TextView? = null
+    private var tvSystemTime: TextView? = null
+    private var loadingSpinner: View? = null
     private var videoTitle: TextView? = null
     private var topControls: View? = null
     private var bottomControls: View? = null
@@ -92,6 +94,7 @@ class PlayerActivity : BaseActivity() {
         private const val SEEK_TIME_MS = 10000L // 10 seconds
         private const val CONTROLS_HIDE_DELAY = 3000L // 3 seconds
         private const val TRACK_LOADING_DELAY_MS = 2000L // 2 seconds - Wait for tracks to load
+        private const val SYSTEM_TIME_UPDATE_INTERVAL = 60000L // 1 minute
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -163,19 +166,24 @@ class PlayerActivity : BaseActivity() {
         videoLayout = findViewById(R.id.vlc_video_layout)
         btnBack = findViewById(R.id.btn_back)
         btnPlayPause = findViewById(R.id.btn_play_pause)
-        btnRewind = findViewById(R.id.btn_rewind)
-        btnForward = findViewById(R.id.btn_forward)
-        btnAudioSubtitle = findViewById(R.id.btn_audio_subtitle)
+        btnSubtitleTrack = findViewById(R.id.btn_subtitle_track)
+        btnAudioTrack = findViewById(R.id.btn_audio_track)
+        btnAspectRatio = findViewById(R.id.btn_aspect_ratio)
         btnSubtitleSettings = findViewById(R.id.btn_subtitle_settings)
-        seekBar = findViewById(R.id.seek_bar)
-        timeCurrent = findViewById(R.id.time_current)
-        timeTotal = findViewById(R.id.time_total)
+        seekBar = findViewById(R.id.player_seekbar)
+        tvCurrentTime = findViewById(R.id.tv_current_time)
+        tvDurationEnds = findViewById(R.id.tv_duration_ends)
+        tvSystemTime = findViewById(R.id.tv_system_time)
+        loadingSpinner = findViewById(R.id.loading_spinner)
         videoTitle = findViewById(R.id.video_title)
         topControls = findViewById(R.id.top_controls)
         bottomControls = findViewById(R.id.bottom_controls)
         
         // Initialize subtitle downloader
         subtitleDownloader = SubtitleDownloader(this)
+        
+        // Start system time updater
+        startSystemTimeUpdater()
 
         // Set up button click listeners
         btnBack?.setOnClickListener {
@@ -186,16 +194,17 @@ class PlayerActivity : BaseActivity() {
             togglePlayPause()
         }
 
-        btnRewind?.setOnClickListener {
-            seekRelative(-SEEK_TIME_MS)
-        }
-
-        btnForward?.setOnClickListener {
-            seekRelative(SEEK_TIME_MS)
-        }
-
-        btnAudioSubtitle?.setOnClickListener {
+        btnSubtitleTrack?.setOnClickListener {
             showTrackSelectionDialog()
+        }
+
+        btnAudioTrack?.setOnClickListener {
+            showTrackSelectionDialog()
+        }
+
+        btnAspectRatio?.setOnClickListener {
+            // TODO: Implement aspect ratio selection
+            App.toast("Aspect ratio selection coming soon", false)
         }
 
         btnSubtitleSettings?.setOnClickListener {
@@ -207,6 +216,7 @@ class PlayerActivity : BaseActivity() {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
                     mediaPlayer?.time = progress.toLong()
+                    updateEndsAtTime()
                 }
             }
 
@@ -227,6 +237,9 @@ class PlayerActivity : BaseActivity() {
 
     private fun initializePlayer(videoUrl: String, subtitleUrl: String?) {
         try {
+            // Show loading spinner
+            loadingSpinner?.visibility = View.VISIBLE
+            
             // Initialize LibVLC
             val options = ArrayList<String>().apply {
                 add("--aout=opensles")
@@ -249,6 +262,7 @@ class PlayerActivity : BaseActivity() {
                         MediaPlayer.Event.Playing -> {
                             Log.d(TAG, "Playback started")
                             runOnUiThread {
+                                loadingSpinner?.visibility = View.GONE
                                 updatePlayPauseButton()
                                 startProgressUpdate()
                                 // Auto-select preferred audio/subtitle tracks
@@ -270,6 +284,7 @@ class PlayerActivity : BaseActivity() {
                         MediaPlayer.Event.EncounteredError -> {
                             Log.e(TAG, "Playback error")
                             runOnUiThread {
+                                loadingSpinner?.visibility = View.GONE
                                 App.toast(R.string.playback_error, true)
                                 finish()
                             }
@@ -277,6 +292,16 @@ class PlayerActivity : BaseActivity() {
                         MediaPlayer.Event.LengthChanged -> {
                             runOnUiThread {
                                 updateDuration()
+                            }
+                        }
+                        MediaPlayer.Event.Buffering -> {
+                            val buffering = event.buffering
+                            runOnUiThread {
+                                if (buffering < 100f) {
+                                    loadingSpinner?.visibility = View.VISIBLE
+                                } else {
+                                    loadingSpinner?.visibility = View.GONE
+                                }
                             }
                         }
                         else -> {}
@@ -300,17 +325,38 @@ class PlayerActivity : BaseActivity() {
                         Log.e(TAG, "Failed to add external subtitle", e)
                     }
                 }
+                
+                // Add Media.EventListener to handle parsed tracks
+                setEventListener { mediaEvent ->
+                    when (mediaEvent.type) {
+                        Media.Event.ParsedChanged -> {
+                            val parsedStatus = parsedStatus
+                            Log.d(TAG, "Media ParsedChanged: $parsedStatus")
+                            
+                            if (parsedStatus == Media.ParsedStatus.Done) {
+                                Log.d(TAG, "Media parsing complete, tracks available")
+                                runOnUiThread {
+                                    refreshTracks()
+                                    
+                                    // Search for external subtitles if no subtitle URL provided
+                                    if (subtitleUrl.isNullOrEmpty()) {
+                                        searchAndLoadExternalSubtitles(videoUrl)
+                                    }
+                                }
+                            }
+                        }
+                        else -> {}
+                    }
+                }
+                
+                // Parse media to detect tracks
+                parseAsync()
             }
 
             // Set media and start playback
             mediaPlayer?.media = media
             media.release()
             mediaPlayer?.play()
-            
-            // Search for external subtitles if no subtitle URL provided
-            if (subtitleUrl.isNullOrEmpty()) {
-                searchAndLoadExternalSubtitles(videoUrl)
-            }
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize player", e)
@@ -350,6 +396,42 @@ class PlayerActivity : BaseActivity() {
         }
     }
 
+    private fun startSystemTimeUpdater() {
+        handler.post(object : Runnable {
+            override fun run() {
+                updateSystemTime()
+                handler.postDelayed(this, SYSTEM_TIME_UPDATE_INTERVAL)
+            }
+        })
+    }
+
+    private fun updateSystemTime() {
+        val currentTime = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+            .format(java.util.Date())
+        tvSystemTime?.text = currentTime
+    }
+
+    private fun updateEndsAtTime() {
+        mediaPlayer?.let { player ->
+            val currentPosition = player.time
+            val totalDuration = player.length
+            
+            if (totalDuration > 0) {
+                val remainingTime = totalDuration - currentPosition
+                val currentSystemTimeMillis = System.currentTimeMillis()
+                val endsAtMillis = currentSystemTimeMillis + remainingTime
+                
+                val durationFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+                val endsAtFormat = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                
+                val durationText = durationFormat.format(java.util.Date(totalDuration))
+                val endsAtText = endsAtFormat.format(java.util.Date(endsAtMillis))
+                
+                tvDurationEnds?.text = "$durationText | Ends at $endsAtText"
+            }
+        }
+    }
+
     private fun startProgressUpdate() {
         handler.post(object : Runnable {
             override fun run() {
@@ -367,8 +449,8 @@ class PlayerActivity : BaseActivity() {
             seekBar?.max = totalTime.toInt()
             seekBar?.progress = currentTime.toInt()
             
-            timeCurrent?.text = formatTime(currentTime)
-            timeTotal?.text = formatTime(totalTime)
+            tvCurrentTime?.text = formatTime(currentTime)
+            updateEndsAtTime()
         }
     }
 
@@ -376,7 +458,7 @@ class PlayerActivity : BaseActivity() {
         mediaPlayer?.let { player ->
             val totalTime = player.length
             seekBar?.max = totalTime.toInt()
-            timeTotal?.text = formatTime(totalTime)
+            updateEndsAtTime()
         }
     }
 
@@ -523,7 +605,7 @@ class PlayerActivity : BaseActivity() {
     private fun selectAudioTrack(trackIndex: Int) {
         mediaPlayer?.let { player ->
             val audioTracks = player.audioTracks
-            if (trackIndex in audioTracks.indices) {
+            if (audioTracks != null && trackIndex in audioTracks.indices) {
                 player.audioTrack = audioTracks[trackIndex].id
                 Log.d(TAG, "Selected audio track: $trackIndex")
             }
@@ -538,13 +620,17 @@ class PlayerActivity : BaseActivity() {
                 Log.d(TAG, "Subtitles disabled")
             } else {
                 val spuTracks = player.spuTracks
-                val actualIndex = trackIndex - 1
-                if (actualIndex in spuTracks.indices) {
-                    player.spuTrack = spuTracks[actualIndex].id
-                    Log.d(TAG, "Selected subtitle track: $actualIndex")
-                    applySubtitleSettings()
+                if (spuTracks != null) {
+                    val actualIndex = trackIndex - 1
+                    if (actualIndex in spuTracks.indices) {
+                        player.spuTrack = spuTracks[actualIndex].id
+                        Log.d(TAG, "Selected subtitle track: $actualIndex")
+                        applySubtitleSettings()
+                    } else {
+                        Log.w(TAG, "Invalid subtitle track index: $actualIndex")
+                    }
                 } else {
-                    Log.w(TAG, "Invalid subtitle track index: $actualIndex")
+                    Log.w(TAG, "Subtitle tracks not yet available")
                 }
             }
         }
@@ -681,12 +767,14 @@ class PlayerActivity : BaseActivity() {
                 val preferredAudioLang = SubtitlePreferences.getPreferredAudioLanguage(this)
                 val audioTracks = player.audioTracks
                 
-                audioTracks.forEachIndexed { index, track ->
-                    val trackName = track.name?.lowercase() ?: ""
-                    if (trackName.contains(preferredAudioLang)) {
-                        player.audioTrack = track.id
-                        Log.d(TAG, "Auto-selected audio track: $trackName")
-                        return@forEachIndexed
+                if (audioTracks != null) {
+                    audioTracks.forEachIndexed { index, track ->
+                        val trackName = track.name?.lowercase() ?: ""
+                        if (trackName.contains(preferredAudioLang)) {
+                            player.audioTrack = track.id
+                            Log.d(TAG, "Auto-selected audio track: $trackName")
+                            return@forEachIndexed
+                        }
                     }
                 }
                 
@@ -694,18 +782,41 @@ class PlayerActivity : BaseActivity() {
                 val preferredSubLang = SubtitlePreferences.getPreferredSubtitleLanguage(this)
                 val spuTracks = player.spuTracks
                 
-                spuTracks.forEachIndexed { index, track ->
-                    val trackName = track.name?.lowercase() ?: ""
-                    if (trackName.contains(preferredSubLang)) {
-                        player.spuTrack = track.id
-                        Log.d(TAG, "Auto-selected subtitle track: $trackName")
-                        return@forEachIndexed
+                if (spuTracks != null) {
+                    spuTracks.forEachIndexed { index, track ->
+                        val trackName = track.name?.lowercase() ?: ""
+                        if (trackName.contains(preferredSubLang)) {
+                            player.spuTrack = track.id
+                            Log.d(TAG, "Auto-selected subtitle track: $trackName")
+                            return@forEachIndexed
+                        }
                     }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error auto-selecting tracks", e)
             }
         }, TRACK_LOADING_DELAY_MS)
+    }
+
+    private fun refreshTracks() {
+        val player = mediaPlayer ?: return
+        
+        Log.d(TAG, "Refreshing tracks after media parse")
+        
+        try {
+            val audioTracks = player.audioTracks
+            val spuTracks = player.spuTracks
+            
+            if (audioTracks != null) {
+                Log.d(TAG, "Audio tracks available: ${audioTracks.size}")
+            }
+            
+            if (spuTracks != null) {
+                Log.d(TAG, "Subtitle tracks available: ${spuTracks.size}")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error refreshing tracks", e)
+        }
     }
 
     override fun onResume() {

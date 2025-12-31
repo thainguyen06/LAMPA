@@ -13,7 +13,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Top overlay with Back button and title -->
+    <!-- Top overlay with Back button, title, and system time -->
     <LinearLayout
         android:id="@+id/top_controls"
         android:layout_width="match_parent"
@@ -45,7 +45,45 @@
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_system_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="00:00"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
     </LinearLayout>
+
+    <!-- Center controls - Play/Pause and Loading -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center">
+
+        <ImageButton
+            android:id="@+id/btn_play_pause"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:layout_gravity="center"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/exo_controls_play_description"
+            android:padding="16dp"
+            android:src="@android:drawable/ic_media_play"
+            android:tint="#FFFFFF"
+            android:scaleType="fitCenter" />
+
+        <ProgressBar
+            android:id="@+id/loading_spinner"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_gravity="center"
+            android:indeterminate="true"
+            android:visibility="gone"
+            style="?android:attr/progressBarStyle" />
+    </FrameLayout>
 
     <!-- Bottom controls overlay -->
     <LinearLayout
@@ -57,78 +95,41 @@
         android:padding="16dp"
         android:background="@drawable/exo_controls_background">
 
-        <!-- Center play/pause button -->
-        <LinearLayout
+        <!-- Progress bar with full width -->
+        <SeekBar
+            android:id="@+id/player_seekbar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="8dp" />
 
-            <ImageButton
-                android:id="@+id/btn_rewind"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_marginEnd="24dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/exo_controls_rewind_description"
-                android:padding="12dp"
-                android:src="@android:drawable/ic_media_rew"
-                android:tint="#FFFFFF" />
-
-            <ImageButton
-                android:id="@+id/btn_play_pause"
-                android:layout_width="72dp"
-                android:layout_height="72dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/exo_controls_play_description"
-                android:padding="12dp"
-                android:src="@android:drawable/ic_media_play"
-                android:tint="#FFFFFF" />
-
-            <ImageButton
-                android:id="@+id/btn_forward"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_marginStart="24dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/exo_controls_fastforward_description"
-                android:padding="12dp"
-                android:src="@android:drawable/ic_media_ff"
-                android:tint="#FFFFFF" />
-        </LinearLayout>
-
-        <!-- Progress bar row -->
+        <!-- Time info row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
+            android:layout_marginBottom="12dp">
 
             <TextView
-                android:id="@+id/time_current"
+                android:id="@+id/tv_current_time"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="00:00"
+                android:text="00:00:00"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:paddingEnd="8dp" />
+                android:textSize="14sp" />
 
-            <SeekBar
-                android:id="@+id/seek_bar"
+            <View
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="1dp"
                 android:layout_weight="1" />
 
             <TextView
-                android:id="@+id/time_total"
+                android:id="@+id/tv_duration_ends"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="00:00"
+                android:text="01:30:00 | Ends at 22:45"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:paddingStart="8dp" />
+                android:textSize="14sp" />
         </LinearLayout>
 
         <!-- Bottom button row -->
@@ -139,13 +140,33 @@
             android:orientation="horizontal">
 
             <ImageButton
-                android:id="@+id/btn_audio_subtitle"
+                android:id="@+id/btn_subtitle_track"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/track_selection_title"
                 android:padding="12dp"
                 android:src="@drawable/ic_subtitles_24"
+                android:tint="#FFFFFF" />
+
+            <ImageButton
+                android:id="@+id/btn_audio_track"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Audio Track"
+                android:padding="12dp"
+                android:src="@android:drawable/ic_lock_silent_mode_off"
+                android:tint="#FFFFFF" />
+
+            <ImageButton
+                android:id="@+id/btn_aspect_ratio"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Aspect Ratio"
+                android:padding="12dp"
+                android:src="@android:drawable/ic_menu_crop"
                 android:tint="#FFFFFF" />
 
             <ImageButton
@@ -157,16 +178,6 @@
                 android:padding="12dp"
                 android:src="@drawable/ic_settings_24"
                 android:tint="#FFFFFF" />
-
-            <ImageButton
-                android:id="@+id/btn_subtitle_source_settings"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/subtitle_settings_gear"
-                android:padding="12dp"
-                android:src="@drawable/ic_settings_24"
-                android:tint="#FFFF00" />
         </LinearLayout>
     </LinearLayout>
 
