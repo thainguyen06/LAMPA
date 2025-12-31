@@ -190,6 +190,10 @@
             android:exported="false"
             android:screenOrientation="sensorLandscape"
             android:theme="@style/Theme.LAMPA" />
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.LAMPA" />
 
         <uses-library
             android:name="org.apache.http.legacy"

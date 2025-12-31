@@ -1345,6 +1345,11 @@ class MainActivity : BaseActivity(),
                 icon = if (isAndroidTV) R.drawable.round_refresh_24 else R.drawable.round_close_24
             ),
             MenuItem(
+                title = getString(R.string.app_settings_title),
+                action = "showSettings",
+                icon = R.drawable.ic_settings_24
+            ),
+            MenuItem(
                 title = getString(R.string.change_url_title),
                 action = "showUrlInputDialog",
                 icon = R.drawable.round_link_24
@@ -1368,7 +1373,7 @@ class MainActivity : BaseActivity(),
 
         // Hide CrossWalk switcher on RuStore builds
         if (!isInstallPermissionDeclared(this))
-            menuItems.removeAt(2)
+            menuItems.removeAt(3)
 
         // Set up the adapter
         val adapter = ImgArrayAdapter(
@@ -1387,6 +1392,11 @@ class MainActivity : BaseActivity(),
                         if (isAndroidTV) {
                             Scheduler.scheduleUpdate(false)
                         }
+                    }
+
+                    "showSettings" -> {
+                        val intent = Intent(this@MainActivity, SettingsActivity::class.java)
+                        startActivity(intent)
                     }
 
                     "showUrlInputDialog" -> {
