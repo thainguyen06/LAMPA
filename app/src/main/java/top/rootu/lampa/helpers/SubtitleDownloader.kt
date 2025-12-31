@@ -101,11 +101,11 @@ class SubtitleDownloader(private val context: Context) {
             val response = httpClient.newCall(request).execute()
             
             if (!response.isSuccessful) {
-                Log.e(TAG, "Failed to download subtitle: ${response.code}")
+                Log.e(TAG, "Failed to download subtitle: ${response.code()}")
                 return@withContext null
             }
             
-            val body = response.body ?: return@withContext null
+            val body = response.body() ?: return@withContext null
             
             // Create cache directory if it doesn't exist
             val cacheDir = File(context.cacheDir, SUBTITLE_CACHE_DIR)

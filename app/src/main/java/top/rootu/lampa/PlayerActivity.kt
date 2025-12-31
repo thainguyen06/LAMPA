@@ -551,6 +551,8 @@ class PlayerActivity : BaseActivity() {
                     player.spuTrack = spuTracks[actualIndex].id
                     Log.d(TAG, "Selected subtitle track: $actualIndex")
                     applySubtitleSettings()
+                } else {
+                    Log.w(TAG, "Invalid subtitle track index: $actualIndex")
                 }
             }
         }
