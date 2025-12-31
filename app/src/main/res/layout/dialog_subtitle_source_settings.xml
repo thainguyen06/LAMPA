@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_dialog_rounded"
+        android:padding="24dp">
+
+        <!-- Dialog Title -->
+        <TextView
+            android:id="@+id/subtitle_source_dialog_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/subtitle_source_settings"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp" />
+
+        <!-- API Key Input -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/subtitle_api_key"
+            android:textColor="#CCCCCC"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/edit_api_key"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/subtitle_api_key_hint"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#666666"
+            android:background="@drawable/bg_edit_text"
+            android:padding="12dp"
+            android:inputType="textPassword"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Username Input -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/subtitle_username"
+            android:textColor="#CCCCCC"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/edit_username"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/subtitle_username_hint"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#666666"
+            android:background="@drawable/bg_edit_text"
+            android:padding="12dp"
+            android:inputType="text"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Password Input -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/subtitle_password"
+            android:textColor="#CCCCCC"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/edit_password"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/subtitle_password_hint"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#666666"
+            android:background="@drawable/bg_edit_text"
+            android:padding="12dp"
+            android:inputType="textPassword"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Preferred Subtitle Language -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/preferred_subtitle_language"
+            android:textColor="#CCCCCC"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+
+        <Spinner
+            android:id="@+id/spinner_subtitle_language"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_edit_text"
+            android:padding="12dp"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Preferred Audio Language -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/preferred_audio_language"
+            android:textColor="#CCCCCC"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+
+        <Spinner
+            android:id="@+id/spinner_audio_language"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_edit_text"
+            android:padding="12dp"
+            android:layout_marginBottom="20dp" />
+
+        <!-- Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_cancel_subtitle_source"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/cancel"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:background="@drawable/bg_button_dialog"
+                android:padding="12dp"
+                android:textAllCaps="false"
+                android:layout_marginEnd="8dp" />
+
+            <Button
+                android:id="@+id/btn_save_subtitle_source"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/save"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:background="@drawable/bg_button_dialog"
+                android:padding="12dp"
+                android:textAllCaps="false"
+                android:layout_marginStart="8dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

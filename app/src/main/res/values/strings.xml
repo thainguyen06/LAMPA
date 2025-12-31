@@ -157,4 +157,14 @@
     <string name="background_black">Black</string>
     <string name="background_semitransparent">Semi-transparent</string>
     <string name="back">Back</string>
+    <string name="subtitle_source_settings">Subtitle Source Settings</string>
+    <string name="subtitle_api_key">API Key</string>
+    <string name="subtitle_api_key_hint">Enter OpenSubtitles API key</string>
+    <string name="subtitle_username">Username</string>
+    <string name="subtitle_username_hint">Enter username (optional)</string>
+    <string name="subtitle_password">Password</string>
+    <string name="subtitle_password_hint">Enter password (optional)</string>
+    <string name="preferred_subtitle_language">Preferred Subtitle Language</string>
+    <string name="preferred_audio_language">Preferred Audio Language</string>
+    <string name="subtitle_settings_gear">Subtitle Settings</string>
 </resources>
