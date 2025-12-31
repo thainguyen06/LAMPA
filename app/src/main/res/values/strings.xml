@@ -167,4 +167,5 @@
     <string name="preferred_subtitle_language">Preferred Subtitle Language</string>
     <string name="preferred_audio_language">Preferred Audio Language</string>
     <string name="subtitle_settings_gear">Subtitle Settings</string>
+    <string name="subtitle_loaded">External subtitle loaded</string>
 </resources>

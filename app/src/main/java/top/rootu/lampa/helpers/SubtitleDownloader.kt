@@ -25,13 +25,14 @@ class SubtitleDownloader(private val context: Context) {
     companion object {
         private const val TAG = "SubtitleDownloader"
         private const val SUBTITLE_CACHE_DIR = "subtitle_cache"
-    }
-    
-    private val httpClient: OkHttpClient by lazy {
-        OkHttpClient.Builder()
-            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .build()
+        
+        // Shared OkHttpClient instance for efficiency
+        private val httpClient: OkHttpClient by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+        }
     }
     
     /**
@@ -109,7 +110,10 @@ class SubtitleDownloader(private val context: Context) {
             // Create cache directory if it doesn't exist
             val cacheDir = File(context.cacheDir, SUBTITLE_CACHE_DIR)
             if (!cacheDir.exists()) {
-                cacheDir.mkdirs()
+                if (!cacheDir.mkdirs()) {
+                    Log.e(TAG, "Failed to create cache directory")
+                    return@withContext null
+                }
             }
             
             // Generate a unique filename

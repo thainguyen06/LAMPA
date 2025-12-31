@@ -708,12 +708,16 @@ class PlayerActivity : BaseActivity() {
                 if (subtitlePath != null) {
                     Log.d(TAG, "External subtitle downloaded: $subtitlePath")
                     
-                    // Load the subtitle into the player
+                    // Note: Adding subtitle to already playing media may not work reliably
+                    // For best results, subtitles should be added before playback starts
+                    // This is a best-effort approach for dynamically loaded subtitles
                     mediaPlayer?.media?.let { media ->
                         media.addOption(":input-slave=$subtitlePath")
                     }
                     
-                    App.toast("External subtitle loaded", false)
+                    runOnUiThread {
+                        App.toast(R.string.subtitle_loaded, false)
+                    }
                 } else {
                     Log.d(TAG, "No external subtitle found")
                 }
