@@ -75,16 +75,14 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
                 return@withContext emptyList()
             }
             
-            // Try hash-based search first (more accurate)
-            // Note: Hash calculation requires local file access which we don't have for streams
-            // So we'll fallback to query-based search
-            
-            // Build search parameters
+            // Build search parameters with proper URL encoding
+            val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
             val searchParams = buildString {
-                append("?query=$query")
+                append("?query=$encodedQuery")
                 append("&languages=$language")
                 if (!imdbId.isNullOrEmpty()) {
-                    append("&imdb_id=$imdbId")
+                    val encodedImdbId = java.net.URLEncoder.encode(imdbId, "UTF-8")
+                    append("&imdb_id=$encodedImdbId")
                 }
             }
             
@@ -317,8 +315,15 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
                     hash += byteBuffer.long
                 }
                 
+                // Seek to last chunk using skip with loop to ensure correct position
+                var remaining = fileSize - chunkSize
+                while (remaining > 0) {
+                    val skipped = stream.skip(remaining)
+                    if (skipped <= 0) break
+                    remaining -= skipped
+                }
+                
                 // Read last chunk
-                stream.skip(fileSize - chunkSize)
                 stream.read(buffer)
                 
                 byteBuffer.rewind()

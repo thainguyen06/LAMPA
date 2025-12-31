@@ -87,6 +87,12 @@ class PlayerActivity : BaseActivity() {
     private val hideControlsRunnable = Runnable {
         hideControls()
     }
+    private val systemTimeRunnable = object : Runnable {
+        override fun run() {
+            updateSystemTime()
+            handler.postDelayed(this, SYSTEM_TIME_UPDATE_INTERVAL)
+        }
+    }
 
     companion object {
         private const val TAG = "PlayerActivity"
@@ -400,12 +406,7 @@ class PlayerActivity : BaseActivity() {
     }
 
     private fun startSystemTimeUpdater() {
-        handler.post(object : Runnable {
-            override fun run() {
-                updateSystemTime()
-                handler.postDelayed(this, SYSTEM_TIME_UPDATE_INTERVAL)
-            }
-        })
+        handler.post(systemTimeRunnable)
     }
 
     private fun updateSystemTime() {
@@ -424,10 +425,11 @@ class PlayerActivity : BaseActivity() {
                 val currentSystemTimeMillis = System.currentTimeMillis()
                 val endsAtMillis = currentSystemTimeMillis + remainingTime
                 
-                val durationFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-                val endsAtFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+                // Format duration as HH:mm:ss
+                val durationText = formatTime(totalDuration)
                 
-                val durationText = durationFormat.format(Date(totalDuration))
+                // Format ends at time as HH:mm
+                val endsAtFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
                 val endsAtText = endsAtFormat.format(Date(endsAtMillis))
                 
                 tvDurationEnds?.text = "$durationText | Ends at $endsAtText"
@@ -845,6 +847,7 @@ class PlayerActivity : BaseActivity() {
 
     private fun releasePlayer() {
         handler.removeCallbacksAndMessages(null)
+        handler.removeCallbacks(systemTimeRunnable)
         
         mediaPlayer?.let { player ->
             player.stop()
