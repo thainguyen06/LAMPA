@@ -13,12 +13,11 @@ import java.io.FileOutputStream
  * SubtitleDownloader - Helper class to search and download external subtitles
  * 
  * Provides functionality to:
- * - Search for subtitles from external sources (OpenSubtitles, etc.)
+ * - Search for subtitles from multiple external sources (OpenSubtitles, SubSource, SubDL, SubHero)
  * - Download subtitle files to local cache
  * - Manage subtitle file lifecycle
  * 
- * Note: This is a placeholder implementation. Full OpenSubtitles API integration
- * would require proper authentication, rate limiting, and error handling.
+ * Uses a provider-based architecture to support multiple subtitle sources.
  */
 class SubtitleDownloader(private val context: Context) {
     
@@ -35,8 +34,19 @@ class SubtitleDownloader(private val context: Context) {
         }
     }
     
+    // Initialize all available subtitle providers
+    private val providers: List<SubtitleProvider> by lazy {
+        listOf(
+            OpenSubtitlesProvider(context),
+            SubSourceProvider(context),
+            SubDLProvider(context),
+            SubHeroProvider(context)
+        )
+    }
+    
     /**
      * Search and download subtitles for a video
+     * Iterates through all enabled providers until a subtitle is found
      * 
      * @param videoFilename The filename of the video (used for matching)
      * @param imdbId The IMDB ID of the content (if available)
@@ -51,27 +61,39 @@ class SubtitleDownloader(private val context: Context) {
         try {
             Log.d(TAG, "Searching subtitles for: $videoFilename (IMDB: $imdbId, Lang: $language)")
             
-            // Get credentials from preferences
-            val apiKey = SubtitlePreferences.getApiKey(context)
-            val username = SubtitlePreferences.getUsername(context)
-            val password = SubtitlePreferences.getPassword(context)
-            
-            if (apiKey.isNullOrEmpty()) {
-                Log.w(TAG, "No API credentials configured")
-                return@withContext null
+            // Iterate through all enabled providers
+            for (provider in providers) {
+                if (!provider.isEnabled()) {
+                    Log.d(TAG, "Provider ${provider.getName()} is disabled, skipping")
+                    continue
+                }
+                
+                Log.d(TAG, "Trying provider: ${provider.getName()}")
+                
+                try {
+                    // Search for subtitles using this provider
+                    val results = provider.search(videoFilename, imdbId, language)
+                    
+                    if (results.isNotEmpty()) {
+                        Log.d(TAG, "Found ${results.size} results from ${provider.getName()}")
+                        
+                        // Try to download the first (best) result
+                        val subtitlePath = provider.download(results.first())
+                        
+                        if (subtitlePath != null) {
+                            Log.d(TAG, "Successfully downloaded subtitle from ${provider.getName()}")
+                            return@withContext subtitlePath
+                        }
+                    } else {
+                        Log.d(TAG, "No results from ${provider.getName()}")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error with provider ${provider.getName()}", e)
+                    // Continue to next provider
+                }
             }
             
-            // Placeholder: In a full implementation, you would:
-            // 1. Authenticate with OpenSubtitles API using credentials
-            // 2. Search for subtitles using IMDB ID or video filename hash
-            // 3. Filter results by language
-            // 4. Download the best matching subtitle
-            // 5. Save to cache directory
-            
-            Log.d(TAG, "Subtitle search placeholder - API integration needed")
-            
-            // For now, return null to indicate no subtitle found
-            // In production, this would download and return the subtitle file path
+            Log.d(TAG, "No subtitles found from any provider")
             return@withContext null
             
         } catch (e: Exception) {

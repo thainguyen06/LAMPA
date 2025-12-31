@@ -13,14 +13,11 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
-import android.widget.ArrayAdapter
 import android.widget.Button
-import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.SeekBar
-import android.widget.Spinner
 import android.widget.TextView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +29,6 @@ import org.videolan.libvlc.MediaPlayer
 import org.videolan.libvlc.util.VLCVideoLayout
 import top.rootu.lampa.helpers.SubtitleDownloader
 import top.rootu.lampa.helpers.SubtitlePreferences
-import java.io.IOException
 
 /**
  * PlayerActivity - Full-screen video player using LibVLC
@@ -65,7 +61,6 @@ class PlayerActivity : BaseActivity() {
     private var btnForward: ImageButton? = null
     private var btnAudioSubtitle: ImageButton? = null
     private var btnSubtitleSettings: ImageButton? = null
-    private var btnSubtitleSourceSettings: ImageButton? = null
     private var seekBar: SeekBar? = null
     private var timeCurrent: TextView? = null
     private var timeTotal: TextView? = null
@@ -172,7 +167,6 @@ class PlayerActivity : BaseActivity() {
         btnForward = findViewById(R.id.btn_forward)
         btnAudioSubtitle = findViewById(R.id.btn_audio_subtitle)
         btnSubtitleSettings = findViewById(R.id.btn_subtitle_settings)
-        btnSubtitleSourceSettings = findViewById(R.id.btn_subtitle_source_settings)
         seekBar = findViewById(R.id.seek_bar)
         timeCurrent = findViewById(R.id.time_current)
         timeTotal = findViewById(R.id.time_total)
@@ -206,10 +200,6 @@ class PlayerActivity : BaseActivity() {
 
         btnSubtitleSettings?.setOnClickListener {
             showSubtitleSettingsDialog()
-        }
-
-        btnSubtitleSourceSettings?.setOnClickListener {
-            showSubtitleSourceSettingsDialog()
         }
 
         // Seek bar listener
@@ -469,7 +459,8 @@ class PlayerActivity : BaseActivity() {
     private fun populateAudioTracks(audioGroup: RadioGroup, player: MediaPlayer) {
         audioGroup.removeAllViews()
         
-        val audioTracks = player.audioTracks
+        // Add null check to prevent crash when tracks are not yet loaded
+        val audioTracks = player.audioTracks ?: emptyArray()
         val currentTrack = player.audioTrack
         
         if (audioTracks.isEmpty()) {
@@ -507,7 +498,8 @@ class PlayerActivity : BaseActivity() {
         }
         subtitleGroup.addView(disabledButton)
         
-        val spuTracks = player.spuTracks
+        // Add null check to prevent crash when tracks are not yet loaded
+        val spuTracks = player.spuTracks ?: emptyArray()
         val currentTrack = player.spuTrack
         
         if (currentTrack == -1) {
@@ -630,57 +622,6 @@ class PlayerActivity : BaseActivity() {
         // Note: For dynamic subtitle styling in LibVLC Android, you would typically
         // need to implement custom subtitle rendering or use the setScale and
         // other methods available on the MediaPlayer. This is a simplified version.
-    }
-
-    private fun showSubtitleSourceSettingsDialog() {
-        val dialog = Dialog(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog)
-        dialog.setContentView(R.layout.dialog_subtitle_source_settings)
-        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-        
-        val editApiKey = dialog.findViewById<EditText>(R.id.edit_api_key)
-        val editUsername = dialog.findViewById<EditText>(R.id.edit_username)
-        val editPassword = dialog.findViewById<EditText>(R.id.edit_password)
-        val spinnerSubtitleLang = dialog.findViewById<Spinner>(R.id.spinner_subtitle_language)
-        val spinnerAudioLang = dialog.findViewById<Spinner>(R.id.spinner_audio_language)
-        val btnCancel = dialog.findViewById<Button>(R.id.btn_cancel_subtitle_source)
-        val btnSave = dialog.findViewById<Button>(R.id.btn_save_subtitle_source)
-        
-        // Load current settings
-        editApiKey.setText(SubtitlePreferences.getApiKey(this) ?: "")
-        editUsername.setText(SubtitlePreferences.getUsername(this) ?: "")
-        editPassword.setText(SubtitlePreferences.getPassword(this) ?: "")
-        
-        // Setup language spinners
-        val languages = resources.getStringArray(R.array.language_codes)
-        val languageAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, languages)
-        languageAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        
-        spinnerSubtitleLang.adapter = languageAdapter
-        spinnerAudioLang.adapter = languageAdapter
-        
-        // Set current selections
-        val currentSubLang = SubtitlePreferences.getPreferredSubtitleLanguage(this)
-        val currentAudioLang = SubtitlePreferences.getPreferredAudioLanguage(this)
-        spinnerSubtitleLang.setSelection(languages.indexOf(currentSubLang).coerceAtLeast(0))
-        spinnerAudioLang.setSelection(languages.indexOf(currentAudioLang).coerceAtLeast(0))
-        
-        btnCancel.setOnClickListener {
-            dialog.dismiss()
-        }
-        
-        btnSave.setOnClickListener {
-            // Save settings
-            SubtitlePreferences.setApiKey(this, editApiKey.text.toString())
-            SubtitlePreferences.setUsername(this, editUsername.text.toString())
-            SubtitlePreferences.setPassword(this, editPassword.text.toString())
-            SubtitlePreferences.setPreferredSubtitleLanguage(this, languages[spinnerSubtitleLang.selectedItemPosition])
-            SubtitlePreferences.setPreferredAudioLanguage(this, languages[spinnerAudioLang.selectedItemPosition])
-            
-            App.toast(R.string.save, false)
-            dialog.dismiss()
-        }
-        
-        dialog.show()
     }
 
     private fun searchAndLoadExternalSubtitles(videoUrl: String) {
