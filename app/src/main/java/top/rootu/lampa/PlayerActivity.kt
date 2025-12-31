@@ -847,7 +847,6 @@ class PlayerActivity : BaseActivity() {
 
     private fun releasePlayer() {
         handler.removeCallbacksAndMessages(null)
-        handler.removeCallbacks(systemTimeRunnable)
         
         mediaPlayer?.let { player ->
             player.stop()

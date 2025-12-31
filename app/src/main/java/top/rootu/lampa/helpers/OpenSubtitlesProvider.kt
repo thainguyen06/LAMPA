@@ -299,7 +299,7 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
             val chunkSize = 65536L // 64KB
             val fileSize = file.length()
             
-            if (fileSize < chunkSize) {
+            if (fileSize < chunkSize * 2) {
                 return null
             }
             
@@ -307,26 +307,46 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
             
             file.inputStream().use { stream ->
                 // Read first chunk
-                val buffer = ByteArray(chunkSize.toInt())
-                stream.read(buffer)
+                val firstBuffer = ByteArray(chunkSize.toInt())
+                var bytesRead = stream.read(firstBuffer)
                 
-                val byteBuffer = ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN)
+                if (bytesRead != chunkSize.toInt()) {
+                    return null
+                }
+                
+                var byteBuffer = ByteBuffer.wrap(firstBuffer).order(ByteOrder.LITTLE_ENDIAN)
                 for (i in 0 until chunkSize / 8) {
                     hash += byteBuffer.long
                 }
                 
-                // Seek to last chunk using skip with loop to ensure correct position
-                var remaining = fileSize - chunkSize
-                while (remaining > 0) {
+                // Skip to last chunk with retry limit to avoid infinite loop
+                var remaining = fileSize - chunkSize * 2
+                var retries = 0
+                val maxRetries = 100
+                
+                while (remaining > 0 && retries < maxRetries) {
                     val skipped = stream.skip(remaining)
-                    if (skipped <= 0) break
-                    remaining -= skipped
+                    if (skipped <= 0) {
+                        retries++
+                        if (retries >= maxRetries) {
+                            Log.w(TAG, "Failed to skip to end of file after $maxRetries retries")
+                            return null
+                        }
+                    } else {
+                        remaining -= skipped
+                    }
                 }
                 
-                // Read last chunk
-                stream.read(buffer)
+                // Read last chunk into a new buffer
+                val lastBuffer = ByteArray(chunkSize.toInt())
+                bytesRead = stream.read(lastBuffer)
                 
-                byteBuffer.rewind()
+                if (bytesRead != chunkSize.toInt()) {
+                    Log.w(TAG, "Failed to read complete last chunk")
+                    return null
+                }
+                
+                byteBuffer = ByteBuffer.wrap(lastBuffer).order(ByteOrder.LITTLE_ENDIAN)
                 for (i in 0 until chunkSize / 8) {
                     hash += byteBuffer.long
                 }
