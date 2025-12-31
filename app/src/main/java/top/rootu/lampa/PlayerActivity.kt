@@ -338,7 +338,7 @@ class PlayerActivity : BaseActivity() {
                 // Add Media.EventListener to handle parsed tracks
                 setEventListener { mediaEvent ->
                     when (mediaEvent.type) {
-                        Media.Event.ParsedChanged -> {
+                        MediaPlayer.Event.ParsedChanged -> {
                             // Check if parsing is complete using isParsed()
                             val isParsed = isParsed()
                             Log.d(TAG, "Media ParsedChanged, isParsed: $isParsed")
