@@ -178,4 +178,8 @@
     <string name="settings_username">Username</string>
     <string name="settings_password">Password</string>
     <string name="settings_saved">Settings saved successfully</string>
+    <!-- ExoPlayer control descriptions -->
+    <string name="exo_controls_rewind_description">Rewind</string>
+    <string name="exo_controls_play_description">Play</string>
+    <string name="exo_controls_fastforward_description">Fast forward</string>
 </resources>
