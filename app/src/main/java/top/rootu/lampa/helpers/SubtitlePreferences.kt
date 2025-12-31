@@ -16,8 +16,8 @@ object SubtitlePreferences {
     
     // Keys for SharedPreferences
     private const val KEY_API_KEY = "subtitle_source_apikey"
-    private const val KEY_USERNAME = "subtitle_source_username"
-    private const val KEY_PASSWORD = "subtitle_source_password"
+    private const val KEY_USERNAME = "subtitle_username"
+    private const val KEY_PASSWORD = "subtitle_password"
     private const val KEY_PREFERRED_AUDIO_LANG = "preferred_audio_language"
     private const val KEY_PREFERRED_SUBTITLE_LANG = "preferred_subtitle_language"
     
@@ -107,8 +107,9 @@ object SubtitlePreferences {
      * Check if subtitle credentials are configured
      */
     fun hasCredentials(context: Context): Boolean {
-        val apiKey = getApiKey(context)
-        return !apiKey.isNullOrEmpty()
+        val username = getUsername(context)
+        val password = getPassword(context)
+        return !username.isNullOrEmpty() && !password.isNullOrEmpty()
     }
     
     /**
