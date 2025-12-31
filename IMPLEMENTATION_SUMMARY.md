@@ -59,8 +59,8 @@ import java.util.Locale
 - **Problem:** `spuTracks` was null because it was accessed too early
 - **Solution:** Attached `Media.EventListener` to the VLC Media object
 - **Event Handling:**
-  - Listen for `Media.Event.ParsedChanged`
-  - Check for `ParsedStatus.Done`
+  - Listen for `Media.Event.MetaChanged`
+  - Check if media is parsed using `isParsed()`
   - Only after parsing is complete, call `refreshTracks()` to populate subtitle list
   - Trigger auto-downloader after tracks are available
 
