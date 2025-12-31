@@ -13,16 +13,25 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.SeekBar
+import android.widget.Spinner
 import android.widget.TextView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
 import org.videolan.libvlc.util.VLCVideoLayout
+import top.rootu.lampa.helpers.SubtitleDownloader
+import top.rootu.lampa.helpers.SubtitlePreferences
 import java.io.IOException
 
 /**
@@ -56,6 +65,7 @@ class PlayerActivity : BaseActivity() {
     private var btnForward: ImageButton? = null
     private var btnAudioSubtitle: ImageButton? = null
     private var btnSubtitleSettings: ImageButton? = null
+    private var btnSubtitleSourceSettings: ImageButton? = null
     private var seekBar: SeekBar? = null
     private var timeCurrent: TextView? = null
     private var timeTotal: TextView? = null
@@ -67,6 +77,10 @@ class PlayerActivity : BaseActivity() {
     private var subtitleFontSize = 16 // Medium
     private var subtitleColor = 0xFFFFFF // White
     private var subtitleBackground = 0x00000000 // Transparent
+    
+    // External subtitle support
+    private var subtitleDownloader: SubtitleDownloader? = null
+    private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
     
     private val handler = Handler(Looper.getMainLooper())
     private var isControlsVisible = true
@@ -82,6 +96,7 @@ class PlayerActivity : BaseActivity() {
         
         private const val SEEK_TIME_MS = 10000L // 10 seconds
         private const val CONTROLS_HIDE_DELAY = 3000L // 3 seconds
+        private const val TRACK_LOADING_DELAY_MS = 2000L // 2 seconds - Wait for tracks to load
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -157,12 +172,16 @@ class PlayerActivity : BaseActivity() {
         btnForward = findViewById(R.id.btn_forward)
         btnAudioSubtitle = findViewById(R.id.btn_audio_subtitle)
         btnSubtitleSettings = findViewById(R.id.btn_subtitle_settings)
+        btnSubtitleSourceSettings = findViewById(R.id.btn_subtitle_source_settings)
         seekBar = findViewById(R.id.seek_bar)
         timeCurrent = findViewById(R.id.time_current)
         timeTotal = findViewById(R.id.time_total)
         videoTitle = findViewById(R.id.video_title)
         topControls = findViewById(R.id.top_controls)
         bottomControls = findViewById(R.id.bottom_controls)
+        
+        // Initialize subtitle downloader
+        subtitleDownloader = SubtitleDownloader(this)
 
         // Set up button click listeners
         btnBack?.setOnClickListener {
@@ -187,6 +206,10 @@ class PlayerActivity : BaseActivity() {
 
         btnSubtitleSettings?.setOnClickListener {
             showSubtitleSettingsDialog()
+        }
+
+        btnSubtitleSourceSettings?.setOnClickListener {
+            showSubtitleSourceSettingsDialog()
         }
 
         // Seek bar listener
@@ -238,6 +261,8 @@ class PlayerActivity : BaseActivity() {
                             runOnUiThread {
                                 updatePlayPauseButton()
                                 startProgressUpdate()
+                                // Auto-select preferred audio/subtitle tracks
+                                autoSelectPreferredTracks()
                             }
                         }
                         MediaPlayer.Event.Paused -> {
@@ -278,7 +303,8 @@ class PlayerActivity : BaseActivity() {
                 // Add external subtitle if provided
                 if (!subtitleUrl.isNullOrEmpty()) {
                     try {
-                        addSlave(Media.Slave.Type.Subtitle, subtitleUrl, true)
+                        // Using addOption for LibVLC 3.6.0 compatibility
+                        addOption(":input-slave=$subtitleUrl")
                         Log.d(TAG, "Added external subtitle: $subtitleUrl")
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed to add external subtitle", e)
@@ -290,6 +316,11 @@ class PlayerActivity : BaseActivity() {
             mediaPlayer?.media = media
             media.release()
             mediaPlayer?.play()
+            
+            // Search for external subtitles if no subtitle URL provided
+            if (subtitleUrl.isNullOrEmpty()) {
+                searchAndLoadExternalSubtitles(videoUrl)
+            }
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize player", e)
@@ -597,6 +628,141 @@ class PlayerActivity : BaseActivity() {
         // Note: For dynamic subtitle styling in LibVLC Android, you would typically
         // need to implement custom subtitle rendering or use the setScale and
         // other methods available on the MediaPlayer. This is a simplified version.
+    }
+
+    private fun showSubtitleSourceSettingsDialog() {
+        val dialog = Dialog(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog)
+        dialog.setContentView(R.layout.dialog_subtitle_source_settings)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        
+        val editApiKey = dialog.findViewById<EditText>(R.id.edit_api_key)
+        val editUsername = dialog.findViewById<EditText>(R.id.edit_username)
+        val editPassword = dialog.findViewById<EditText>(R.id.edit_password)
+        val spinnerSubtitleLang = dialog.findViewById<Spinner>(R.id.spinner_subtitle_language)
+        val spinnerAudioLang = dialog.findViewById<Spinner>(R.id.spinner_audio_language)
+        val btnCancel = dialog.findViewById<Button>(R.id.btn_cancel_subtitle_source)
+        val btnSave = dialog.findViewById<Button>(R.id.btn_save_subtitle_source)
+        
+        // Load current settings
+        editApiKey.setText(SubtitlePreferences.getApiKey(this) ?: "")
+        editUsername.setText(SubtitlePreferences.getUsername(this) ?: "")
+        editPassword.setText(SubtitlePreferences.getPassword(this) ?: "")
+        
+        // Setup language spinners
+        val languages = resources.getStringArray(R.array.language_codes)
+        val languageAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, languages)
+        languageAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        
+        spinnerSubtitleLang.adapter = languageAdapter
+        spinnerAudioLang.adapter = languageAdapter
+        
+        // Set current selections
+        val currentSubLang = SubtitlePreferences.getPreferredSubtitleLanguage(this)
+        val currentAudioLang = SubtitlePreferences.getPreferredAudioLanguage(this)
+        spinnerSubtitleLang.setSelection(languages.indexOf(currentSubLang).coerceAtLeast(0))
+        spinnerAudioLang.setSelection(languages.indexOf(currentAudioLang).coerceAtLeast(0))
+        
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+        }
+        
+        btnSave.setOnClickListener {
+            // Save settings
+            SubtitlePreferences.setApiKey(this, editApiKey.text.toString())
+            SubtitlePreferences.setUsername(this, editUsername.text.toString())
+            SubtitlePreferences.setPassword(this, editPassword.text.toString())
+            SubtitlePreferences.setPreferredSubtitleLanguage(this, languages[spinnerSubtitleLang.selectedItemPosition])
+            SubtitlePreferences.setPreferredAudioLanguage(this, languages[spinnerAudioLang.selectedItemPosition])
+            
+            App.toast(R.string.save, false)
+            dialog.dismiss()
+        }
+        
+        dialog.show()
+    }
+
+    private fun searchAndLoadExternalSubtitles(videoUrl: String) {
+        // Check if credentials are configured
+        if (!SubtitlePreferences.hasCredentials(this)) {
+            Log.d(TAG, "No subtitle source credentials configured")
+            return
+        }
+        
+        // Get preferred subtitle language
+        val preferredLang = SubtitlePreferences.getPreferredSubtitleLanguage(this)
+        
+        // Extract video filename from URL
+        val videoFilename = videoUrl.substringAfterLast('/').substringBefore('?')
+        
+        // Launch async task to search and download subtitles
+        coroutineScope.launch {
+            try {
+                Log.d(TAG, "Searching for external subtitles...")
+                
+                // Search and download subtitles
+                val subtitlePath = subtitleDownloader?.searchAndDownload(
+                    videoFilename = videoFilename,
+                    imdbId = null, // Could be passed from intent if available
+                    language = preferredLang
+                )
+                
+                if (subtitlePath != null) {
+                    Log.d(TAG, "External subtitle downloaded: $subtitlePath")
+                    
+                    // Note: Adding subtitle to already playing media may not work reliably
+                    // For best results, subtitles should be added before playback starts
+                    // This is a best-effort approach for dynamically loaded subtitles
+                    mediaPlayer?.media?.let { media ->
+                        media.addOption(":input-slave=$subtitlePath")
+                    }
+                    
+                    runOnUiThread {
+                        App.toast(R.string.subtitle_loaded, false)
+                    }
+                } else {
+                    Log.d(TAG, "No external subtitle found")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading external subtitles", e)
+            }
+        }
+    }
+
+    private fun autoSelectPreferredTracks() {
+        val player = mediaPlayer ?: return
+        
+        // Wait a bit for tracks to be loaded
+        handler.postDelayed({
+            try {
+                // Auto-select preferred audio language
+                val preferredAudioLang = SubtitlePreferences.getPreferredAudioLanguage(this)
+                val audioTracks = player.audioTracks
+                
+                audioTracks.forEachIndexed { index, track ->
+                    val trackName = track.name?.lowercase() ?: ""
+                    if (trackName.contains(preferredAudioLang)) {
+                        player.audioTrack = track.id
+                        Log.d(TAG, "Auto-selected audio track: $trackName")
+                        return@forEachIndexed
+                    }
+                }
+                
+                // Auto-select preferred subtitle language
+                val preferredSubLang = SubtitlePreferences.getPreferredSubtitleLanguage(this)
+                val spuTracks = player.spuTracks
+                
+                spuTracks.forEachIndexed { index, track ->
+                    val trackName = track.name?.lowercase() ?: ""
+                    if (trackName.contains(preferredSubLang)) {
+                        player.spuTrack = track.id
+                        Log.d(TAG, "Auto-selected subtitle track: $trackName")
+                        return@forEachIndexed
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error auto-selecting tracks", e)
+            }
+        }, TRACK_LOADING_DELAY_MS)
     }
 
     override fun onResume() {

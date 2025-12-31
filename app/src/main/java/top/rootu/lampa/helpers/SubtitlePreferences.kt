@@ -1,0 +1,120 @@
+package top.rootu.lampa.helpers
+
+import android.content.Context
+import android.content.SharedPreferences
+
+/**
+ * SubtitlePreferences - Helper class to manage subtitle-related SharedPreferences
+ * 
+ * Manages settings for external subtitle sources (e.g., OpenSubtitles) including:
+ * - API credentials (API key, username, password)
+ * - Language preferences for audio and subtitles
+ */
+object SubtitlePreferences {
+    
+    private const val PREFS_NAME = "subtitle_preferences"
+    
+    // Keys for SharedPreferences
+    private const val KEY_API_KEY = "subtitle_source_apikey"
+    private const val KEY_USERNAME = "subtitle_source_username"
+    private const val KEY_PASSWORD = "subtitle_source_password"
+    private const val KEY_PREFERRED_AUDIO_LANG = "preferred_audio_language"
+    private const val KEY_PREFERRED_SUBTITLE_LANG = "preferred_subtitle_language"
+    
+    // Default values
+    private const val DEFAULT_LANGUAGE = "en"
+    
+    /**
+     * Get SharedPreferences instance
+     */
+    private fun getPreferences(context: Context): SharedPreferences {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+    
+    /**
+     * Get subtitle source API key
+     */
+    fun getApiKey(context: Context): String? {
+        return getPreferences(context).getString(KEY_API_KEY, null)
+    }
+    
+    /**
+     * Set subtitle source API key
+     */
+    fun setApiKey(context: Context, apiKey: String?) {
+        getPreferences(context).edit().putString(KEY_API_KEY, apiKey).apply()
+    }
+    
+    /**
+     * Get subtitle source username
+     */
+    fun getUsername(context: Context): String? {
+        return getPreferences(context).getString(KEY_USERNAME, null)
+    }
+    
+    /**
+     * Set subtitle source username
+     */
+    fun setUsername(context: Context, username: String?) {
+        getPreferences(context).edit().putString(KEY_USERNAME, username).apply()
+    }
+    
+    /**
+     * Get subtitle source password
+     */
+    fun getPassword(context: Context): String? {
+        return getPreferences(context).getString(KEY_PASSWORD, null)
+    }
+    
+    /**
+     * Set subtitle source password
+     */
+    fun setPassword(context: Context, password: String?) {
+        getPreferences(context).edit().putString(KEY_PASSWORD, password).apply()
+    }
+    
+    /**
+     * Get preferred audio language
+     */
+    fun getPreferredAudioLanguage(context: Context): String {
+        return getPreferences(context).getString(KEY_PREFERRED_AUDIO_LANG, DEFAULT_LANGUAGE) 
+            ?: DEFAULT_LANGUAGE
+    }
+    
+    /**
+     * Set preferred audio language
+     */
+    fun setPreferredAudioLanguage(context: Context, language: String) {
+        getPreferences(context).edit().putString(KEY_PREFERRED_AUDIO_LANG, language).apply()
+    }
+    
+    /**
+     * Get preferred subtitle language
+     */
+    fun getPreferredSubtitleLanguage(context: Context): String {
+        return getPreferences(context).getString(KEY_PREFERRED_SUBTITLE_LANG, DEFAULT_LANGUAGE) 
+            ?: DEFAULT_LANGUAGE
+    }
+    
+    /**
+     * Set preferred subtitle language
+     */
+    fun setPreferredSubtitleLanguage(context: Context, language: String) {
+        getPreferences(context).edit().putString(KEY_PREFERRED_SUBTITLE_LANG, language).apply()
+    }
+    
+    /**
+     * Check if subtitle credentials are configured
+     */
+    fun hasCredentials(context: Context): Boolean {
+        val apiKey = getApiKey(context)
+        return !apiKey.isNullOrEmpty()
+    }
+    
+    /**
+     * Clear all subtitle preferences
+     */
+    fun clearAll(context: Context) {
+        getPreferences(context).edit().clear().apply()
+    }
+}

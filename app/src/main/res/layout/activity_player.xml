@@ -157,6 +157,16 @@
                 android:padding="12dp"
                 android:src="@drawable/ic_settings_24"
                 android:tint="#FFFFFF" />
+
+            <ImageButton
+                android:id="@+id/btn_subtitle_source_settings"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/subtitle_settings_gear"
+                android:padding="12dp"
+                android:src="@drawable/ic_settings_24"
+                android:tint="#FFFF00" />
         </LinearLayout>
     </LinearLayout>
 
