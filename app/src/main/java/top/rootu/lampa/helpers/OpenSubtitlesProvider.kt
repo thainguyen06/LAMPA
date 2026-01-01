@@ -178,14 +178,19 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
                 }
             }
             
+            val searchUrl = "$API_BASE_URL/subtitles$searchParams"
+            Log.d(TAG, "Calling OpenSubtitles API: $searchUrl")
+            
             val request = Request.Builder()
-                .url("$API_BASE_URL/subtitles$searchParams")
+                .url(searchUrl)
                 .header("Api-Key", authToken)
                 .header("User-Agent", USER_AGENT)
                 .header("Accept", "application/json")
                 .build()
             
+            Log.d(TAG, "Making search request to OpenSubtitles...")
             val response = httpClient.newCall(request).execute()
+            Log.d(TAG, "OpenSubtitles API response code: ${response.code()}")
             
             if (!response.isSuccessful) {
                 val errorBody = response.body()?.string()
