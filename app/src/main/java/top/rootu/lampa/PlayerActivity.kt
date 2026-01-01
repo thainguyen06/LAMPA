@@ -27,6 +27,7 @@ import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
 import org.videolan.libvlc.util.VLCVideoLayout
+import top.rootu.lampa.helpers.Prefs.aspectRatio
 import top.rootu.lampa.helpers.SubtitleDownloader
 import top.rootu.lampa.helpers.SubtitlePreferences
 import java.text.SimpleDateFormat
@@ -108,6 +109,31 @@ class PlayerActivity : BaseActivity() {
         // Note: Media class uses integer constants, not a nested Event class like MediaPlayer
         // Reference: org.videolan.libvlc.Media event types
         private const val MEDIA_EVENT_PARSED_CHANGED = 3 // ParsedChanged: fired when media parsing is complete
+        
+        /**
+         * Get radio button ID for the given aspect ratio string
+         */
+        private fun getAspectRatioRadioId(aspectRatio: String?): Int {
+            return when (aspectRatio) {
+                null -> R.id.aspect_ratio_fit // Best fit - maintains aspect ratio
+                "" -> R.id.aspect_ratio_fill // Fill screen - forces to fill
+                "16:9" -> R.id.aspect_ratio_16_9
+                "4:3" -> R.id.aspect_ratio_4_3
+                "21:9" -> R.id.aspect_ratio_21_9
+                else -> R.id.aspect_ratio_fit // Default to fit if unknown
+            }
+        }
+        
+        /**
+         * Get display name for the given aspect ratio string
+         */
+        private fun getAspectRatioDisplayName(aspectRatio: String?): String {
+            return when (aspectRatio) {
+                null -> "Best Fit"
+                "" -> "Fill Screen"
+                else -> aspectRatio
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -274,6 +300,11 @@ class PlayerActivity : BaseActivity() {
                                 startProgressUpdate()
                                 // Auto-select preferred audio/subtitle tracks
                                 autoSelectPreferredTracks()
+                                // Restore saved aspect ratio after player is ready
+                                aspectRatio?.let { savedRatio ->
+                                    setAspectRatio(savedRatio)
+                                    Log.d(TAG, "Restored aspect ratio: $savedRatio")
+                                }
                             }
                         }
                         MediaPlayer.Event.Paused -> {
@@ -724,8 +755,9 @@ class PlayerActivity : BaseActivity() {
         val aspectRatioGroup = dialog.findViewById<RadioGroup>(R.id.aspect_ratio_group)
         val closeButton = dialog.findViewById<Button>(R.id.btn_close_aspect_ratio)
         
-        // Set current selection (default to fit)
-        aspectRatioGroup.check(R.id.aspect_ratio_fit)
+        // Set current selection based on saved preference
+        val currentRatio = aspectRatio
+        aspectRatioGroup.check(getAspectRatioRadioId(currentRatio))
         
         // Handle aspect ratio selection
         aspectRatioGroup.setOnCheckedChangeListener { _, checkedId ->
@@ -753,12 +785,11 @@ class PlayerActivity : BaseActivity() {
                 // - "": Force fill screen (may stretch)
                 // - "width:height": Force specific aspect ratio
                 player.aspectRatio = aspectRatio
-                val ratioText = when (aspectRatio) {
-                    null -> "Best Fit"
-                    "" -> "Fill Screen"
-                    else -> aspectRatio
-                }
+                val ratioText = getAspectRatioDisplayName(aspectRatio)
                 Log.d(TAG, "Aspect ratio set to: $ratioText")
+                
+                // Save the selected aspect ratio
+                this.aspectRatio = aspectRatio
             } catch (e: Exception) {
                 Log.e(TAG, "Error setting aspect ratio", e)
             }

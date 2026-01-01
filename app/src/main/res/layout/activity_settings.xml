@@ -69,6 +69,27 @@
             android:textSize="14sp"
             android:paddingBottom="16dp"/>
 
+        <!-- API Key -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/input_layout_api_key"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/settings_api_key"
+            android:textColorHint="@android:color/white"
+            app:hintTextColor="@android:color/white"
+            app:boxStrokeColor="@android:color/white"
+            app:endIconMode="password_toggle"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/edit_api_key"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@android:color/white"
+                android:inputType="textPassword"
+                android:singleLine="true"/>
+        </com.google.android.material.textfield.TextInputLayout>
+
         <!-- Username -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/input_layout_username"
@@ -78,7 +99,8 @@
             android:textColorHint="@android:color/white"
             app:hintTextColor="@android:color/white"
             app:boxStrokeColor="@android:color/white"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_marginTop="16dp">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/edit_username"
