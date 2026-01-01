@@ -60,8 +60,7 @@ class PlayerActivity : BaseActivity() {
     // UI components
     private var btnBack: ImageButton? = null
     private var btnPlayPause: ImageButton? = null
-    private var btnSubtitleTrack: ImageButton? = null
-    private var btnAudioTrack: ImageButton? = null
+    private var btnTrackSelection: ImageButton? = null
     private var btnAspectRatio: ImageButton? = null
     private var btnSubtitleSettings: ImageButton? = null
     private var seekBar: SeekBar? = null
@@ -180,8 +179,7 @@ class PlayerActivity : BaseActivity() {
         videoLayout = findViewById(R.id.vlc_video_layout)
         btnBack = findViewById(R.id.btn_back)
         btnPlayPause = findViewById(R.id.btn_play_pause)
-        btnSubtitleTrack = findViewById(R.id.btn_subtitle_track)
-        btnAudioTrack = findViewById(R.id.btn_audio_track)
+        btnTrackSelection = findViewById(R.id.btn_track_selection)
         btnAspectRatio = findViewById(R.id.btn_aspect_ratio)
         btnSubtitleSettings = findViewById(R.id.btn_subtitle_settings)
         seekBar = findViewById(R.id.player_seekbar)
@@ -208,17 +206,12 @@ class PlayerActivity : BaseActivity() {
             togglePlayPause()
         }
 
-        btnSubtitleTrack?.setOnClickListener {
-            showTrackSelectionDialog()
-        }
-
-        btnAudioTrack?.setOnClickListener {
+        btnTrackSelection?.setOnClickListener {
             showTrackSelectionDialog()
         }
 
         btnAspectRatio?.setOnClickListener {
-            // TODO: Implement aspect ratio selection
-            App.toast("Aspect ratio selection coming soon", false)
+            showAspectRatioDialog()
         }
 
         btnSubtitleSettings?.setOnClickListener {
@@ -498,6 +491,7 @@ class PlayerActivity : BaseActivity() {
         isControlsVisible = true
         topControls?.visibility = View.VISIBLE
         bottomControls?.visibility = View.VISIBLE
+        btnPlayPause?.visibility = View.VISIBLE
         scheduleHideControls()
     }
 
@@ -505,6 +499,7 @@ class PlayerActivity : BaseActivity() {
         isControlsVisible = false
         topControls?.visibility = View.GONE
         bottomControls?.visibility = View.GONE
+        btnPlayPause?.visibility = View.GONE
         handler.removeCallbacks(hideControlsRunnable)
     }
 
@@ -719,6 +714,55 @@ class PlayerActivity : BaseActivity() {
         // Note: For dynamic subtitle styling in LibVLC Android, you would typically
         // need to implement custom subtitle rendering or use the setScale and
         // other methods available on the MediaPlayer. This is a simplified version.
+    }
+
+    private fun showAspectRatioDialog() {
+        val dialog = Dialog(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog)
+        dialog.setContentView(R.layout.dialog_aspect_ratio)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        
+        val aspectRatioGroup = dialog.findViewById<RadioGroup>(R.id.aspect_ratio_group)
+        val closeButton = dialog.findViewById<Button>(R.id.btn_close_aspect_ratio)
+        
+        // Set current selection (default to fit)
+        aspectRatioGroup.check(R.id.aspect_ratio_fit)
+        
+        // Handle aspect ratio selection
+        aspectRatioGroup.setOnCheckedChangeListener { _, checkedId ->
+            when (checkedId) {
+                R.id.aspect_ratio_fit -> setAspectRatio(null) // Best fit - maintains aspect ratio
+                R.id.aspect_ratio_fill -> setAspectRatio("") // Fill screen - forces to fill
+                R.id.aspect_ratio_16_9 -> setAspectRatio("16:9")
+                R.id.aspect_ratio_4_3 -> setAspectRatio("4:3")
+                R.id.aspect_ratio_21_9 -> setAspectRatio("21:9")
+            }
+        }
+        
+        closeButton.setOnClickListener {
+            dialog.dismiss()
+        }
+        
+        dialog.show()
+    }
+
+    private fun setAspectRatio(aspectRatio: String?) {
+        mediaPlayer?.let { player ->
+            try {
+                // LibVLC aspectRatio behavior:
+                // - null: Best fit (maintains original aspect ratio)
+                // - "": Force fill screen (may stretch)
+                // - "width:height": Force specific aspect ratio
+                player.aspectRatio = aspectRatio
+                val ratioText = when (aspectRatio) {
+                    null -> "Best Fit"
+                    "" -> "Fill Screen"
+                    else -> aspectRatio
+                }
+                Log.d(TAG, "Aspect ratio set to: $ratioText")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error setting aspect ratio", e)
+            }
+        }
     }
 
     private fun searchAndLoadExternalSubtitles(videoUrl: String) {
