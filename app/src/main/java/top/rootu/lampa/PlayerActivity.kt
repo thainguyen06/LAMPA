@@ -730,8 +730,8 @@ class PlayerActivity : BaseActivity() {
         // Handle aspect ratio selection
         aspectRatioGroup.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
-                R.id.aspect_ratio_fit -> setAspectRatio(null) // Best fit
-                R.id.aspect_ratio_fill -> setAspectRatio(null) // Fill screen (same as best fit)
+                R.id.aspect_ratio_fit -> setAspectRatio(null) // Best fit - maintains aspect ratio
+                R.id.aspect_ratio_fill -> setAspectRatio("") // Fill screen - forces to fill
                 R.id.aspect_ratio_16_9 -> setAspectRatio("16:9")
                 R.id.aspect_ratio_4_3 -> setAspectRatio("4:3")
                 R.id.aspect_ratio_21_9 -> setAspectRatio("21:9")
@@ -748,8 +748,16 @@ class PlayerActivity : BaseActivity() {
     private fun setAspectRatio(aspectRatio: String?) {
         mediaPlayer?.let { player ->
             try {
+                // LibVLC aspectRatio behavior:
+                // - null: Best fit (maintains original aspect ratio)
+                // - "": Force fill screen (may stretch)
+                // - "width:height": Force specific aspect ratio
                 player.aspectRatio = aspectRatio
-                val ratioText = aspectRatio ?: "Best Fit"
+                val ratioText = when (aspectRatio) {
+                    null -> "Best Fit"
+                    "" -> "Fill Screen"
+                    else -> aspectRatio
+                }
                 Log.d(TAG, "Aspect ratio set to: $ratioText")
             } catch (e: Exception) {
                 Log.e(TAG, "Error setting aspect ratio", e)
