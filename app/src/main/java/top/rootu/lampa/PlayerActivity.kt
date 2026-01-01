@@ -300,6 +300,11 @@ class PlayerActivity : BaseActivity() {
                                 startProgressUpdate()
                                 // Auto-select preferred audio/subtitle tracks
                                 autoSelectPreferredTracks()
+                                // Restore saved aspect ratio after player is ready
+                                aspectRatio?.let { savedRatio ->
+                                    setAspectRatio(savedRatio)
+                                    Log.d(TAG, "Restored aspect ratio: $savedRatio")
+                                }
                             }
                         }
                         MediaPlayer.Event.Paused -> {
@@ -391,12 +396,6 @@ class PlayerActivity : BaseActivity() {
             mediaPlayer?.media = media
             media.release()
             mediaPlayer?.play()
-
-            // Restore saved aspect ratio after player is ready
-            aspectRatio?.let { savedRatio ->
-                setAspectRatio(savedRatio)
-                Log.d(TAG, "Restored aspect ratio: $savedRatio")
-            }
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize player", e)
