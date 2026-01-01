@@ -43,6 +43,27 @@
             android:importantForAutofill="no"
             android:layout_marginBottom="12dp" />
 
+        <!-- Stremio Addon URL Input -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/stremio_addon_url"
+            android:textColor="#CCCCCC"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/edit_stremio_addon_url"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/stremio_addon_url_hint"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#666666"
+            android:background="@drawable/bg_edit_text"
+            android:padding="12dp"
+            android:inputType="textUri"
+            android:layout_marginBottom="12dp" />
+
         <!-- Username Input -->
         <TextView
             android:layout_width="match_parent"

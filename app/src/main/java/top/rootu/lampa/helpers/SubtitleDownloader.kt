@@ -35,8 +35,10 @@ class SubtitleDownloader(private val context: Context) {
     }
     
     // Initialize all available subtitle providers
+    // Stremio addon is prioritized first for reliability
     private val providers: List<SubtitleProvider> by lazy {
         listOf(
+            StremioAddonProvider(context),  // Prioritize Stremio addon
             OpenSubtitlesProvider(context),
             SubSourceProvider(context),
             SubDLProvider(context),
