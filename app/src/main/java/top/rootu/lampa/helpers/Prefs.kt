@@ -53,6 +53,7 @@ object Prefs {
     private const val THR_KEY = "thrw_rem"
     private const val SYNC_KEY = "sync_account"
     private const val MIGRATE_KEY = "migrate"
+    private const val ASPECT_RATIO_KEY = "aspect_ratio"
 
     // Extension properties for SharedPreferences
     val Context.appPrefs: SharedPreferences
@@ -387,6 +388,11 @@ object Prefs {
             .putString(APP_URL_HISTORY, json)
             .apply()
     }
+
+    // Aspect ratio preference
+    var Context.aspectRatio: String?
+        get() = appPrefs.getString(ASPECT_RATIO_KEY, null)
+        set(ratio) = appPrefs.edit().putString(ASPECT_RATIO_KEY, ratio).apply()
 
     // Generic function to get preferences
     @Suppress("UNCHECKED_CAST")

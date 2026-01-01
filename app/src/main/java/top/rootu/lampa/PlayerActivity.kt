@@ -27,6 +27,7 @@ import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
 import org.videolan.libvlc.util.VLCVideoLayout
+import top.rootu.lampa.helpers.Prefs.aspectRatio
 import top.rootu.lampa.helpers.SubtitleDownloader
 import top.rootu.lampa.helpers.SubtitlePreferences
 import java.text.SimpleDateFormat
@@ -314,6 +315,12 @@ class PlayerActivity : BaseActivity() {
                         else -> {}
                     }
                 }
+            }
+
+            // Restore saved aspect ratio
+            aspectRatio?.let { savedRatio ->
+                setAspectRatio(savedRatio)
+                Log.d(TAG, "Restored aspect ratio: $savedRatio")
             }
 
             // Create and configure media
@@ -724,8 +731,17 @@ class PlayerActivity : BaseActivity() {
         val aspectRatioGroup = dialog.findViewById<RadioGroup>(R.id.aspect_ratio_group)
         val closeButton = dialog.findViewById<Button>(R.id.btn_close_aspect_ratio)
         
-        // Set current selection (default to fit)
-        aspectRatioGroup.check(R.id.aspect_ratio_fit)
+        // Set current selection based on saved preference
+        val currentRatio = aspectRatio
+        val selectedId = when (currentRatio) {
+            null -> R.id.aspect_ratio_fit // Best fit - maintains aspect ratio
+            "" -> R.id.aspect_ratio_fill // Fill screen - forces to fill
+            "16:9" -> R.id.aspect_ratio_16_9
+            "4:3" -> R.id.aspect_ratio_4_3
+            "21:9" -> R.id.aspect_ratio_21_9
+            else -> R.id.aspect_ratio_fit // Default to fit if unknown
+        }
+        aspectRatioGroup.check(selectedId)
         
         // Handle aspect ratio selection
         aspectRatioGroup.setOnCheckedChangeListener { _, checkedId ->
@@ -759,6 +775,9 @@ class PlayerActivity : BaseActivity() {
                     else -> aspectRatio
                 }
                 Log.d(TAG, "Aspect ratio set to: $ratioText")
+                
+                // Save the selected aspect ratio
+                this.aspectRatio = aspectRatio
             } catch (e: Exception) {
                 Log.e(TAG, "Error setting aspect ratio", e)
             }

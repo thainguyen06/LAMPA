@@ -20,6 +20,7 @@ import top.rootu.lampa.helpers.SubtitlePreferences
 class SettingsActivity : BaseActivity() {
     
     private lateinit var switchAlwaysUseInternalPlayer: SwitchCompat
+    private lateinit var editApiKey: TextInputEditText
     private lateinit var editUsername: TextInputEditText
     private lateinit var editPassword: TextInputEditText
     private lateinit var btnSave: Button
@@ -41,6 +42,7 @@ class SettingsActivity : BaseActivity() {
     
     private fun initializeViews() {
         switchAlwaysUseInternalPlayer = findViewById(R.id.switch_always_use_internal_player)
+        editApiKey = findViewById(R.id.edit_api_key)
         editUsername = findViewById(R.id.edit_username)
         editPassword = findViewById(R.id.edit_password)
         btnSave = findViewById(R.id.btn_save)
@@ -53,6 +55,7 @@ class SettingsActivity : BaseActivity() {
         switchAlwaysUseInternalPlayer.isChecked = (currentPlayer == PLAYER_LAMPA)
         
         // Load subtitle credentials
+        editApiKey.setText(SubtitlePreferences.getApiKey(this) ?: "")
         editUsername.setText(SubtitlePreferences.getUsername(this) ?: "")
         editPassword.setText(SubtitlePreferences.getPassword(this) ?: "")
     }
@@ -77,6 +80,7 @@ class SettingsActivity : BaseActivity() {
         }
         
         // Save subtitle credentials
+        SubtitlePreferences.setApiKey(this, editApiKey.text.toString().trim())
         SubtitlePreferences.setUsername(this, editUsername.text.toString().trim())
         SubtitlePreferences.setPassword(this, editPassword.text.toString().trim())
         
