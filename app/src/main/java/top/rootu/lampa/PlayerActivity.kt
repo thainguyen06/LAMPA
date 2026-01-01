@@ -103,6 +103,7 @@ class PlayerActivity : BaseActivity() {
         private const val SEEK_TIME_MS = 10000L // 10 seconds
         private const val CONTROLS_HIDE_DELAY = 3000L // 3 seconds
         private const val TRACK_LOADING_DELAY_MS = 2000L // 2 seconds - Wait for tracks to load
+        private const val SUBTITLE_TRACK_REGISTRATION_DELAY_MS = 500L // 0.5 seconds - Wait for subtitle track to register after addSlave
         private const val SYSTEM_TIME_UPDATE_INTERVAL = 60000L // 1 minute
         
         // LibVLC 3.6.0 Media event type constants
@@ -850,6 +851,8 @@ class PlayerActivity : BaseActivity() {
                                 Log.d(TAG, "Subtitle slave added successfully")
                                 
                                 // Wait a moment for the track to be registered
+                                // LibVLC needs time to parse and register the new subtitle track
+                                // We identify the new track by assuming it's added at the end of the track list
                                 handler.postDelayed({
                                     // Refresh tracks to get the new subtitle
                                     refreshTracks()
@@ -858,20 +861,21 @@ class PlayerActivity : BaseActivity() {
                                     val spuTracks = mediaPlayer?.spuTracks
                                     if (spuTracks != null && spuTracks.isNotEmpty()) {
                                         // Select the last track (newly added one)
+                                        // Note: This assumes LibVLC appends new tracks to the end
                                         val newTrack = spuTracks.last()
                                         mediaPlayer?.spuTrack = newTrack.id
                                         Log.d(TAG, "Auto-selected new subtitle track: ${newTrack.name}")
                                     }
-                                }, 500)
+                                }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
                                 
                                 App.toast(R.string.subtitle_loaded, false)
                             } else {
                                 Log.e(TAG, "Failed to add subtitle slave")
-                                App.toast("Failed to load subtitle", true)
+                                App.toast(R.string.subtitle_load_failed, true)
                             }
                         } catch (e: Exception) {
                             Log.e(TAG, "Error adding subtitle to player", e)
-                            App.toast("Failed to load subtitle", true)
+                            App.toast(R.string.subtitle_load_failed, true)
                         }
                     }
                 } else {
