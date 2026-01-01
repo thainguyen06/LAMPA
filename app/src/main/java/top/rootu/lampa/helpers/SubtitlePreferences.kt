@@ -107,9 +107,8 @@ object SubtitlePreferences {
      * Check if subtitle credentials are configured
      */
     fun hasCredentials(context: Context): Boolean {
-        val username = getUsername(context)
-        val password = getPassword(context)
-        return !username.isNullOrEmpty() && !password.isNullOrEmpty()
+        val apiKey = getApiKey(context)
+        return !apiKey.isNullOrEmpty()
     }
     
     /**

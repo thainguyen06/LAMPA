@@ -140,23 +140,13 @@
             android:orientation="horizontal">
 
             <ImageButton
-                android:id="@+id/btn_subtitle_track"
+                android:id="@+id/btn_track_selection"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/track_selection_title"
                 android:padding="12dp"
                 android:src="@drawable/ic_subtitles_24"
-                android:tint="#FFFFFF" />
-
-            <ImageButton
-                android:id="@+id/btn_audio_track"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Audio Track"
-                android:padding="12dp"
-                android:src="@android:drawable/ic_lock_silent_mode_off"
                 android:tint="#FFFFFF" />
 
             <ImageButton

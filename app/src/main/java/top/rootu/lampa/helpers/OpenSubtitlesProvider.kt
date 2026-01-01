@@ -12,21 +12,17 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.security.MessageDigest
 import java.util.zip.GZIPInputStream
 
 /**
  * OpenSubtitlesProvider - OpenSubtitles.org subtitle provider
  * 
  * Implements subtitle search and download using OpenSubtitles API v1
- * with Username/Password authentication.
+ * with API Key authentication.
  * 
  * Features:
- * - File hash-based search (VLC/OpenSubtitles hash algorithm)
- * - Fallback to filename search
- * - JWT token authentication
+ * - Query-based search with language and IMDB ID filtering
+ * - API key authentication (simpler than username/password)
  * - Automatic subtitle download and extraction
  */
 class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
@@ -45,15 +41,11 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
         }
     }
     
-    private var cachedToken: String? = null
-    private var tokenExpiryTime: Long = 0
-    
     override fun getName(): String = "OpenSubtitles"
     
     override fun isEnabled(): Boolean {
-        val username = SubtitlePreferences.getUsername(context)
-        val password = SubtitlePreferences.getPassword(context)
-        return !username.isNullOrEmpty() && !password.isNullOrEmpty()
+        val apiKey = SubtitlePreferences.getApiKey(context)
+        return !apiKey.isNullOrEmpty()
     }
     
     override suspend fun search(
@@ -69,9 +61,9 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
                 return@withContext emptyList()
             }
             
-            // Get authentication token
-            val token = getAuthToken() ?: run {
-                Log.e(TAG, "Failed to authenticate")
+            // Get API key
+            val apiKey = SubtitlePreferences.getApiKey(context) ?: run {
+                Log.e(TAG, "No API key configured")
                 return@withContext emptyList()
             }
             
@@ -88,7 +80,7 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
             
             val request = Request.Builder()
                 .url("$API_BASE_URL/subtitles$searchParams")
-                .header("Api-Key", token)
+                .header("Api-Key", apiKey)
                 .header("User-Agent", USER_AGENT)
                 .header("Accept", "application/json")
                 .build()
@@ -145,8 +137,8 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
         try {
             Log.d(TAG, "Downloading subtitle: ${result.name}")
             
-            val token = getAuthToken() ?: run {
-                Log.e(TAG, "Failed to authenticate")
+            val apiKey = SubtitlePreferences.getApiKey(context) ?: run {
+                Log.e(TAG, "No API key configured")
                 return@withContext null
             }
             
@@ -158,7 +150,7 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
             val mediaType = MediaType.parse("application/json")
             val request = Request.Builder()
                 .url(result.downloadUrl)
-                .header("Api-Key", token)
+                .header("Api-Key", apiKey)
                 .header("User-Agent", USER_AGENT)
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json")
@@ -225,128 +217,6 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
         } catch (e: Exception) {
             Log.e(TAG, "Error downloading subtitle", e)
             return@withContext null
-        }
-    }
-    
-    /**
-     * Authenticate with OpenSubtitles API and get JWT token
-     */
-    private suspend fun getAuthToken(): String? = withContext(Dispatchers.IO) {
-        try {
-            // Check if we have a valid cached token
-            if (cachedToken != null && System.currentTimeMillis() < tokenExpiryTime) {
-                return@withContext cachedToken
-            }
-            
-            val username = SubtitlePreferences.getUsername(context)
-            val password = SubtitlePreferences.getPassword(context)
-            
-            if (username.isNullOrEmpty() || password.isNullOrEmpty()) {
-                return@withContext null
-            }
-            
-            // Create login request
-            val requestBody = JSONObject().apply {
-                put("username", username)
-                put("password", password)
-            }.toString()
-            
-            val mediaType = MediaType.parse("application/json")
-            val request = Request.Builder()
-                .url("$API_BASE_URL/login")
-                .header("Content-Type", "application/json")
-                .header("User-Agent", USER_AGENT)
-                .header("Accept", "application/json")
-                .post(RequestBody.create(mediaType, requestBody))
-                .build()
-            
-            val response = httpClient.newCall(request).execute()
-            
-            if (!response.isSuccessful) {
-                Log.e(TAG, "Authentication failed: ${response.code()}")
-                return@withContext null
-            }
-            
-            val body = response.body()?.string() ?: return@withContext null
-            val jsonResponse = JSONObject(body)
-            
-            val token = jsonResponse.optString("token")
-            if (token.isEmpty()) {
-                Log.e(TAG, "No token in authentication response")
-                return@withContext null
-            }
-            
-            // Cache token (valid for 24 hours typically)
-            cachedToken = token
-            tokenExpiryTime = System.currentTimeMillis() + (23 * 60 * 60 * 1000) // 23 hours
-            
-            Log.d(TAG, "Authentication successful")
-            return@withContext token
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Authentication error", e)
-            return@withContext null
-        }
-    }
-    
-    /**
-     * Calculate OpenSubtitles hash for video file
-     * This is the VLC/OpenSubtitles hash algorithm
-     * 
-     * Note: This requires local file access, which we don't have for streams
-     * Keeping this for future implementation if needed
-     */
-    fun calculateHash(file: File): String? {
-        try {
-            val chunkSize = 65536L // 64KB
-            val fileSize = file.length()
-            
-            if (fileSize < chunkSize * 2) {
-                return null
-            }
-            
-            var hash = fileSize
-            
-            // Use RandomAccessFile for reliable positioning
-            java.io.RandomAccessFile(file, "r").use { raf ->
-                // Read first chunk
-                val firstBuffer = ByteArray(chunkSize.toInt())
-                raf.seek(0)
-                var bytesRead = raf.read(firstBuffer)
-                
-                if (bytesRead != chunkSize.toInt()) {
-                    Log.w(TAG, "Failed to read complete first chunk")
-                    return null
-                }
-                
-                var byteBuffer = ByteBuffer.wrap(firstBuffer).order(ByteOrder.LITTLE_ENDIAN)
-                for (i in 0 until chunkSize / 8) {
-                    hash += byteBuffer.long
-                }
-                
-                // Seek to last chunk
-                raf.seek(fileSize - chunkSize)
-                
-                // Read last chunk into a new buffer
-                val lastBuffer = ByteArray(chunkSize.toInt())
-                bytesRead = raf.read(lastBuffer)
-                
-                if (bytesRead != chunkSize.toInt()) {
-                    Log.w(TAG, "Failed to read complete last chunk")
-                    return null
-                }
-                
-                byteBuffer = ByteBuffer.wrap(lastBuffer).order(ByteOrder.LITTLE_ENDIAN)
-                for (i in 0 until chunkSize / 8) {
-                    hash += byteBuffer.long
-                }
-            }
-            
-            return String.format("%016x", hash)
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Error calculating hash", e)
-            return null
         }
     }
 }

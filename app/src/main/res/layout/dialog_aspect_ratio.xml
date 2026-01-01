@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_dialog_rounded"
+    android:padding="24dp">
+
+    <!-- Dialog Title -->
+    <TextView
+        android:id="@+id/aspect_ratio_dialog_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/aspect_ratio_title"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Aspect Ratio Options -->
+    <RadioGroup
+        android:id="@+id/aspect_ratio_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp">
+
+        <RadioButton
+            android:id="@+id/aspect_ratio_fit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/aspect_ratio_fit"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:padding="8dp" />
+
+        <RadioButton
+            android:id="@+id/aspect_ratio_fill"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/aspect_ratio_fill"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:padding="8dp" />
+
+        <RadioButton
+            android:id="@+id/aspect_ratio_16_9"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/aspect_ratio_16_9"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:padding="8dp" />
+
+        <RadioButton
+            android:id="@+id/aspect_ratio_4_3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/aspect_ratio_4_3"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:padding="8dp" />
+
+        <RadioButton
+            android:id="@+id/aspect_ratio_21_9"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/aspect_ratio_21_9"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:padding="8dp" />
+
+    </RadioGroup>
+
+    <!-- Close Button -->
+    <Button
+        android:id="@+id/btn_close_aspect_ratio"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/cancel"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:background="@drawable/bg_button_dialog"
+        android:padding="12dp"
+        android:textAllCaps="false" />
+
+</LinearLayout>
