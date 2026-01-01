@@ -233,9 +233,9 @@ class StremioAddonProvider(private val context: Context) : SubtitleProvider {
             // Determine file extension from content type or URL
             val contentType = response.header("Content-Type", "")
             val extension = when {
-                contentType.contains("srt") -> "srt"
-                contentType.contains("vtt") -> "vtt"
-                contentType.contains("ass") -> "ass"
+                contentType?.contains("srt") == true -> "srt"
+                contentType?.contains("vtt") == true -> "vtt"
+                contentType?.contains("ass") == true -> "ass"
                 result.downloadUrl.endsWith(".srt", ignoreCase = true) -> "srt"
                 result.downloadUrl.endsWith(".vtt", ignoreCase = true) -> "vtt"
                 result.downloadUrl.endsWith(".ass", ignoreCase = true) -> "ass"
