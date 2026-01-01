@@ -18,20 +18,24 @@ import java.util.zip.GZIPInputStream
  * OpenSubtitlesProvider - OpenSubtitles.org subtitle provider
  * 
  * Implements subtitle search and download using OpenSubtitles API v1
- * with API Key authentication.
+ * with dual authentication support.
  * 
  * Official Documentation:
  * - API Reference: https://opensubtitles.stoplight.io/docs/opensubtitles-api
  * - Getting Started: https://opensubtitles.stoplight.io/docs/opensubtitles-api/e3750fd63a100-getting-started
  * - Vietnamese Guide: https://apidog.com/vi/blog/opensubtitles-api-vi/
  * 
+ * Authentication Methods (both supported):
+ * 1. API Key: Direct API key in header (simpler, recommended)
+ * 2. JWT Token: Username/password login to obtain token (fallback)
+ * 
  * Features:
  * - Query-based search with language and IMDB ID filtering
- * - API key authentication (required for API v1)
+ * - Dual authentication support (API key or username/password)
  * - Automatic subtitle download and extraction
  * 
  * Requirements:
- * - API Key must be set in SubtitlePreferences
+ * - Either API Key OR Username+Password must be set in SubtitlePreferences
  * - User-Agent header is required by the API
  * - API has rate limits (check documentation for details)
  */
@@ -53,11 +57,95 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
         }
     }
     
+    // JWT token caching for username/password authentication
+    private var cachedToken: String? = null
+    private var tokenExpiryTime: Long = 0
+    
     override fun getName(): String = "OpenSubtitles"
     
     override fun isEnabled(): Boolean {
         val apiKey = SubtitlePreferences.getApiKey(context)
-        return !apiKey.isNullOrEmpty()
+        val username = SubtitlePreferences.getUsername(context)
+        val password = SubtitlePreferences.getPassword(context)
+        
+        // Enabled if either API key OR username+password is configured
+        return !apiKey.isNullOrEmpty() || 
+               (!username.isNullOrEmpty() && !password.isNullOrEmpty())
+    }
+    
+    /**
+     * Get authentication token for API requests
+     * Priority: API Key > JWT Token (from username/password)
+     */
+    private suspend fun getAuthToken(): String? = withContext(Dispatchers.IO) {
+        try {
+            // First, try to use API key if available
+            val apiKey = SubtitlePreferences.getApiKey(context)
+            if (!apiKey.isNullOrEmpty()) {
+                Log.d(TAG, "Using API key authentication")
+                return@withContext apiKey
+            }
+            
+            // Fall back to username/password JWT authentication
+            val username = SubtitlePreferences.getUsername(context)
+            val password = SubtitlePreferences.getPassword(context)
+            
+            if (username.isNullOrEmpty() || password.isNullOrEmpty()) {
+                Log.e(TAG, "No credentials configured")
+                return@withContext null
+            }
+            
+            // Check if we have a valid cached JWT token
+            if (cachedToken != null && System.currentTimeMillis() < tokenExpiryTime) {
+                Log.d(TAG, "Using cached JWT token")
+                return@withContext cachedToken
+            }
+            
+            Log.d(TAG, "Authenticating with username/password to get JWT token")
+            
+            // Login to get JWT token
+            val requestBody = JSONObject().apply {
+                put("username", username)
+                put("password", password)
+            }.toString()
+            
+            val mediaType = MediaType.parse("application/json")
+            val request = Request.Builder()
+                .url("$API_BASE_URL/login")
+                .header("Content-Type", "application/json")
+                .header("User-Agent", USER_AGENT)
+                .header("Accept", "application/json")
+                .post(RequestBody.create(mediaType, requestBody))
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            
+            if (!response.isSuccessful) {
+                val errorBody = response.body()?.string()
+                Log.e(TAG, "Authentication failed: ${response.code()} - $errorBody")
+                return@withContext null
+            }
+            
+            val body = response.body()?.string() ?: return@withContext null
+            val jsonResponse = JSONObject(body)
+            
+            val token = jsonResponse.optString("token")
+            if (token.isEmpty()) {
+                Log.e(TAG, "No token in authentication response")
+                return@withContext null
+            }
+            
+            // Cache token (valid for 24 hours typically)
+            cachedToken = token
+            tokenExpiryTime = System.currentTimeMillis() + (23 * 60 * 60 * 1000) // 23 hours
+            
+            Log.d(TAG, "JWT authentication successful")
+            return@withContext token
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Authentication error", e)
+            return@withContext null
+        }
     }
     
     override suspend fun search(
@@ -73,9 +161,9 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
                 return@withContext emptyList()
             }
             
-            // Get API key
-            val apiKey = SubtitlePreferences.getApiKey(context) ?: run {
-                Log.e(TAG, "No API key configured")
+            // Get authentication token (API key or JWT token)
+            val authToken = getAuthToken() ?: run {
+                Log.e(TAG, "Failed to get authentication token")
                 return@withContext emptyList()
             }
             
@@ -92,7 +180,7 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
             
             val request = Request.Builder()
                 .url("$API_BASE_URL/subtitles$searchParams")
-                .header("Api-Key", apiKey)
+                .header("Api-Key", authToken)
                 .header("User-Agent", USER_AGENT)
                 .header("Accept", "application/json")
                 .build()
@@ -150,8 +238,9 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
         try {
             Log.d(TAG, "Downloading subtitle: ${result.name}")
             
-            val apiKey = SubtitlePreferences.getApiKey(context) ?: run {
-                Log.e(TAG, "No API key configured")
+            // Get authentication token (API key or JWT token)
+            val authToken = getAuthToken() ?: run {
+                Log.e(TAG, "Failed to get authentication token")
                 return@withContext null
             }
             
@@ -163,7 +252,7 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
             val mediaType = MediaType.parse("application/json")
             val request = Request.Builder()
                 .url(result.downloadUrl)
-                .header("Api-Key", apiKey)
+                .header("Api-Key", authToken)
                 .header("User-Agent", USER_AGENT)
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json")
