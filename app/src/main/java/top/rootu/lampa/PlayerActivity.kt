@@ -850,21 +850,25 @@ class PlayerActivity : BaseActivity() {
                             if (added == true) {
                                 Log.d(TAG, "Subtitle slave added successfully")
                                 
+                                // Store track count before adding to help identify the new track
+                                val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
+                                
                                 // Wait a moment for the track to be registered
                                 // LibVLC needs time to parse and register the new subtitle track
-                                // We identify the new track by assuming it's added at the end of the track list
                                 handler.postDelayed({
                                     // Refresh tracks to get the new subtitle
                                     refreshTracks()
                                     
                                     // Try to auto-select the newly added subtitle
                                     val spuTracks = mediaPlayer?.spuTracks
-                                    if (spuTracks != null && spuTracks.isNotEmpty()) {
+                                    if (spuTracks != null && spuTracks.size > previousTrackCount) {
                                         // Select the last track (newly added one)
-                                        // Note: This assumes LibVLC appends new tracks to the end
+                                        // This works because LibVLC appends new tracks to the end
                                         val newTrack = spuTracks.last()
                                         mediaPlayer?.spuTrack = newTrack.id
                                         Log.d(TAG, "Auto-selected new subtitle track: ${newTrack.name}")
+                                    } else {
+                                        Log.w(TAG, "New subtitle track not detected in track list")
                                     }
                                 }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
                                 
@@ -880,10 +884,7 @@ class PlayerActivity : BaseActivity() {
                     }
                 } else {
                     Log.d(TAG, "No external subtitle found")
-                    runOnUiThread {
-                        // Only log, don't show toast to avoid annoying users
-                        Log.d(TAG, "No matching subtitles found from providers")
-                    }
+                    // No need to show toast or wrap in runOnUiThread for logging
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading external subtitles", e)
