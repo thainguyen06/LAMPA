@@ -730,8 +730,8 @@ class PlayerActivity : BaseActivity() {
         // Handle aspect ratio selection
         aspectRatioGroup.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
-                R.id.aspect_ratio_fit -> setAspectRatio("0") // Best fit
-                R.id.aspect_ratio_fill -> setAspectRatio("") // Fill screen
+                R.id.aspect_ratio_fit -> setAspectRatio(null) // Best fit
+                R.id.aspect_ratio_fill -> setAspectRatio(null) // Fill screen (same as best fit)
                 R.id.aspect_ratio_16_9 -> setAspectRatio("16:9")
                 R.id.aspect_ratio_4_3 -> setAspectRatio("4:3")
                 R.id.aspect_ratio_21_9 -> setAspectRatio("21:9")
@@ -745,22 +745,12 @@ class PlayerActivity : BaseActivity() {
         dialog.show()
     }
 
-    private fun setAspectRatio(aspectRatio: String) {
+    private fun setAspectRatio(aspectRatio: String?) {
         mediaPlayer?.let { player ->
             try {
-                if (aspectRatio.isEmpty()) {
-                    // Fill screen - set to null
-                    player.aspectRatio = null
-                    Log.d(TAG, "Aspect ratio set to: Fill Screen")
-                } else if (aspectRatio == "0") {
-                    // Best fit - use default value
-                    player.aspectRatio = null
-                    Log.d(TAG, "Aspect ratio set to: Best Fit")
-                } else {
-                    // Set specific aspect ratio
-                    player.aspectRatio = aspectRatio
-                    Log.d(TAG, "Aspect ratio set to: $aspectRatio")
-                }
+                player.aspectRatio = aspectRatio
+                val ratioText = aspectRatio ?: "Best Fit"
+                Log.d(TAG, "Aspect ratio set to: $ratioText")
             } catch (e: Exception) {
                 Log.e(TAG, "Error setting aspect ratio", e)
             }
