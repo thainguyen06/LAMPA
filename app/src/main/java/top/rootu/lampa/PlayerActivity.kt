@@ -833,6 +833,9 @@ class PlayerActivity : BaseActivity() {
                     
                     runOnUiThread {
                         try {
+                            // Store track count BEFORE adding to detect new track after registration delay
+                            val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
+                            
                             // Convert file path to proper URI format for LibVLC
                             val subtitleUri = if (!subtitlePath.startsWith("file://")) {
                                 "file://$subtitlePath"
@@ -849,9 +852,6 @@ class PlayerActivity : BaseActivity() {
                             
                             if (added == true) {
                                 Log.d(TAG, "Subtitle slave added successfully")
-                                
-                                // Store track count before adding to help identify the new track
-                                val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
                                 
                                 // Wait a moment for the track to be registered
                                 // LibVLC needs time to parse and register the new subtitle track

@@ -601,10 +601,18 @@ class AndroidJS(private val mainActivity: MainActivity, private val browser: Bro
             }
             (link.startsWith("http://", ignoreCase = true) || 
              link.startsWith("https://", ignoreCase = true)) -> {
-                // HTTP/HTTPS streams - directly launch internal player (bypassing dialog)
-                debugLog(TAG, "HTTP/HTTPS stream detected, launching internal player directly")
-                mainActivity.runOnUiThread {
-                    launchInternalPlayer(link, jsonObject)
+                // HTTP/HTTPS streams - check user's player preference
+                val playerPreference = mainActivity.appPlayer
+                if (playerPreference == PLAYER_LAMPA) {
+                    // User has "Always use Internal Player" enabled
+                    debugLog(TAG, "HTTP/HTTPS stream detected, launching internal player (user preference)")
+                    mainActivity.runOnUiThread {
+                        launchInternalPlayer(link, jsonObject)
+                    }
+                } else {
+                    // User preference not set or set to external - show player selection dialog
+                    debugLog(TAG, "HTTP/HTTPS stream detected, using player selection based on preference")
+                    mainActivity.runOnUiThread { mainActivity.runPlayer(jsonObject) }
                 }
             }
             else -> {
