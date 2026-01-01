@@ -20,6 +20,7 @@ object SubtitlePreferences {
     private const val KEY_PASSWORD = "subtitle_password"
     private const val KEY_PREFERRED_AUDIO_LANG = "preferred_audio_language"
     private const val KEY_PREFERRED_SUBTITLE_LANG = "preferred_subtitle_language"
+    private const val KEY_STREMIO_ADDON_URL = "stremio_addon_url"
     
     // Default values
     private const val DEFAULT_LANGUAGE = "en"
@@ -104,17 +105,33 @@ object SubtitlePreferences {
     }
     
     /**
+     * Get Stremio addon URL
+     */
+    fun getStremioAddonUrl(context: Context): String? {
+        return getPreferences(context).getString(KEY_STREMIO_ADDON_URL, null)
+    }
+    
+    /**
+     * Set Stremio addon URL
+     */
+    fun setStremioAddonUrl(context: Context, url: String?) {
+        getPreferences(context).edit().putString(KEY_STREMIO_ADDON_URL, url).apply()
+    }
+    
+    /**
      * Check if subtitle credentials are configured
-     * Returns true if either API key OR username+password is set
+     * Returns true if either API key OR username+password OR Stremio addon URL is set
      */
     fun hasCredentials(context: Context): Boolean {
         val apiKey = getApiKey(context)
         val username = getUsername(context)
         val password = getPassword(context)
+        val stremioUrl = getStremioAddonUrl(context)
         
-        // Return true if API key is set OR both username and password are set
+        // Return true if API key is set OR both username and password are set OR Stremio addon URL is set
         return !apiKey.isNullOrEmpty() || 
-               (!username.isNullOrEmpty() && !password.isNullOrEmpty())
+               (!username.isNullOrEmpty() && !password.isNullOrEmpty()) ||
+               !stremioUrl.isNullOrEmpty()
     }
     
     /**

@@ -23,6 +23,7 @@ class SettingsActivity : BaseActivity() {
     private lateinit var editApiKey: TextInputEditText
     private lateinit var editUsername: TextInputEditText
     private lateinit var editPassword: TextInputEditText
+    private lateinit var editStremioAddonUrl: TextInputEditText
     private lateinit var btnSave: Button
     private lateinit var btnCancel: Button
     
@@ -45,6 +46,7 @@ class SettingsActivity : BaseActivity() {
         editApiKey = findViewById(R.id.edit_api_key)
         editUsername = findViewById(R.id.edit_username)
         editPassword = findViewById(R.id.edit_password)
+        editStremioAddonUrl = findViewById(R.id.edit_stremio_addon_url)
         btnSave = findViewById(R.id.btn_save)
         btnCancel = findViewById(R.id.btn_cancel)
     }
@@ -58,6 +60,7 @@ class SettingsActivity : BaseActivity() {
         editApiKey.setText(SubtitlePreferences.getApiKey(this) ?: "")
         editUsername.setText(SubtitlePreferences.getUsername(this) ?: "")
         editPassword.setText(SubtitlePreferences.getPassword(this) ?: "")
+        editStremioAddonUrl.setText(SubtitlePreferences.getStremioAddonUrl(this) ?: "")
     }
     
     private fun setupListeners() {
@@ -83,6 +86,7 @@ class SettingsActivity : BaseActivity() {
         SubtitlePreferences.setApiKey(this, editApiKey.text.toString().trim())
         SubtitlePreferences.setUsername(this, editUsername.text.toString().trim())
         SubtitlePreferences.setPassword(this, editPassword.text.toString().trim())
+        SubtitlePreferences.setStremioAddonUrl(this, editStremioAddonUrl.text.toString().trim())
         
         // Show success message
         App.toast(R.string.settings_saved, false)
