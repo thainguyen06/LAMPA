@@ -168,6 +168,7 @@
     <string name="preferred_audio_language">Preferred Audio Language</string>
     <string name="subtitle_settings_gear">Subtitle Settings</string>
     <string name="subtitle_loaded">External subtitle loaded</string>
+    <string name="subtitle_load_failed">Failed to load subtitle</string>
     <!-- App Settings -->
     <string name="app_settings_title">App Settings</string>
     <string name="settings_player_section">Player Preferences</string>

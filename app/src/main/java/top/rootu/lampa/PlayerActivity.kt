@@ -103,6 +103,7 @@ class PlayerActivity : BaseActivity() {
         private const val SEEK_TIME_MS = 10000L // 10 seconds
         private const val CONTROLS_HIDE_DELAY = 3000L // 3 seconds
         private const val TRACK_LOADING_DELAY_MS = 2000L // 2 seconds - Wait for tracks to load
+        private const val SUBTITLE_TRACK_REGISTRATION_DELAY_MS = 500L // 0.5 seconds - Wait for subtitle track to register after addSlave
         private const val SYSTEM_TIME_UPDATE_INTERVAL = 60000L // 1 minute
         
         // LibVLC 3.6.0 Media event type constants
@@ -797,22 +798,28 @@ class PlayerActivity : BaseActivity() {
     }
 
     private fun searchAndLoadExternalSubtitles(videoUrl: String) {
+        Log.d(TAG, "searchAndLoadExternalSubtitles called for: $videoUrl")
+        
         // Check if credentials are configured
         if (!SubtitlePreferences.hasCredentials(this)) {
-            Log.d(TAG, "No subtitle source credentials configured")
+            Log.w(TAG, "No subtitle source credentials configured, skipping external subtitle search")
             return
         }
         
+        Log.d(TAG, "Subtitle credentials found, proceeding with search")
+        
         // Get preferred subtitle language
         val preferredLang = SubtitlePreferences.getPreferredSubtitleLanguage(this)
+        Log.d(TAG, "Preferred subtitle language: $preferredLang")
         
         // Extract video filename from URL
         val videoFilename = videoUrl.substringAfterLast('/').substringBefore('?')
+        Log.d(TAG, "Extracted video filename: $videoFilename")
         
         // Launch async task to search and download subtitles
         coroutineScope.launch {
             try {
-                Log.d(TAG, "Searching for external subtitles...")
+                Log.d(TAG, "Starting external subtitle search...")
                 
                 // Search and download subtitles
                 val subtitlePath = subtitleDownloader?.searchAndDownload(
@@ -824,18 +831,60 @@ class PlayerActivity : BaseActivity() {
                 if (subtitlePath != null) {
                     Log.d(TAG, "External subtitle downloaded: $subtitlePath")
                     
-                    // Note: Adding subtitle to already playing media may not work reliably
-                    // For best results, subtitles should be added before playback starts
-                    // This is a best-effort approach for dynamically loaded subtitles
-                    mediaPlayer?.media?.let { media ->
-                        media.addOption(":input-slave=$subtitlePath")
-                    }
-                    
                     runOnUiThread {
-                        App.toast(R.string.subtitle_loaded, false)
+                        try {
+                            // Convert file path to proper URI format for LibVLC
+                            val subtitleUri = if (!subtitlePath.startsWith("file://")) {
+                                "file://$subtitlePath"
+                            } else {
+                                subtitlePath
+                            }
+                            
+                            Log.d(TAG, "Adding subtitle URI: $subtitleUri")
+                            
+                            // Use addSlave to add subtitle to already playing media
+                            // Type 0 = Subtitle, 1 = Audio
+                            // Priority 0 = auto, higher values = higher priority
+                            val added = mediaPlayer?.addSlave(0, subtitleUri, true)
+                            
+                            if (added == true) {
+                                Log.d(TAG, "Subtitle slave added successfully")
+                                
+                                // Store track count before adding to help identify the new track
+                                val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
+                                
+                                // Wait a moment for the track to be registered
+                                // LibVLC needs time to parse and register the new subtitle track
+                                handler.postDelayed({
+                                    // Refresh tracks to get the new subtitle
+                                    refreshTracks()
+                                    
+                                    // Try to auto-select the newly added subtitle
+                                    val spuTracks = mediaPlayer?.spuTracks
+                                    if (spuTracks != null && spuTracks.size > previousTrackCount) {
+                                        // Select the last track (newly added one)
+                                        // This works because LibVLC appends new tracks to the end
+                                        val newTrack = spuTracks.last()
+                                        mediaPlayer?.spuTrack = newTrack.id
+                                        Log.d(TAG, "Auto-selected new subtitle track: ${newTrack.name}")
+                                    } else {
+                                        Log.w(TAG, "New subtitle track not detected in track list")
+                                    }
+                                }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
+                                
+                                App.toast(R.string.subtitle_loaded, false)
+                            } else {
+                                Log.e(TAG, "Failed to add subtitle slave")
+                                App.toast(R.string.subtitle_load_failed, true)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error adding subtitle to player", e)
+                            App.toast(R.string.subtitle_load_failed, true)
+                        }
                     }
                 } else {
                     Log.d(TAG, "No external subtitle found")
+                    // No need to show toast or wrap in runOnUiThread for logging
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading external subtitles", e)
