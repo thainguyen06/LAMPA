@@ -20,17 +20,29 @@ import java.util.zip.GZIPInputStream
  * Implements subtitle search and download using OpenSubtitles API v1
  * with API Key authentication.
  * 
+ * Official Documentation:
+ * - API Reference: https://opensubtitles.stoplight.io/docs/opensubtitles-api
+ * - Getting Started: https://opensubtitles.stoplight.io/docs/opensubtitles-api/e3750fd63a100-getting-started
+ * - Vietnamese Guide: https://apidog.com/vi/blog/opensubtitles-api-vi/
+ * 
  * Features:
  * - Query-based search with language and IMDB ID filtering
- * - API key authentication (simpler than username/password)
+ * - API key authentication (required for API v1)
  * - Automatic subtitle download and extraction
+ * 
+ * Requirements:
+ * - API Key must be set in SubtitlePreferences
+ * - User-Agent header is required by the API
+ * - API has rate limits (check documentation for details)
  */
 class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
     
     companion object {
         private const val TAG = "OpenSubtitlesProvider"
         private const val API_BASE_URL = "https://api.opensubtitles.com/api/v1"
-        private const val USER_AGENT = "LAMPA Android v1.0"
+        // User-Agent format as per OpenSubtitles API documentation
+        // Format: AppName vVersion (contact email or website)
+        private const val USER_AGENT = "LAMPA v1.0"
         private const val SUBTITLE_CACHE_DIR = "subtitle_cache"
         
         private val httpClient: OkHttpClient by lazy {
@@ -88,7 +100,8 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
             val response = httpClient.newCall(request).execute()
             
             if (!response.isSuccessful) {
-                Log.e(TAG, "Search failed: ${response.code()}")
+                val errorBody = response.body()?.string()
+                Log.e(TAG, "Search failed: ${response.code()} - $errorBody")
                 return@withContext emptyList()
             }
             
@@ -160,7 +173,8 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
             val response = httpClient.newCall(request).execute()
             
             if (!response.isSuccessful) {
-                Log.e(TAG, "Download request failed: ${response.code()}")
+                val errorBody = response.body()?.string()
+                Log.e(TAG, "Download request failed: ${response.code()} - $errorBody")
                 return@withContext null
             }
             
