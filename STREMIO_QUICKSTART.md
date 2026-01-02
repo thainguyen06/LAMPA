@@ -15,10 +15,12 @@ User reported: "I received a notification that the external subtitles have been 
 **Quick Setup (2 steps):**
 
 1. Open Settings → Subtitle Settings
-2. Enter this URL: `https://opensubtitles-v3.strem.io`
+2. Enter this URL: `https://opensubtitles-v3.strem.io/manifest.json`
 3. Save and play any video!
 
 **That's it!** Subtitles will now load automatically and appear in the track selection menu.
+
+**Note:** You can also use the base URL format `https://opensubtitles-v3.strem.io` (without `/manifest.json`) - both formats work!
 
 ### For Developers
 
@@ -67,8 +69,10 @@ User gets "External subtitle loaded" notification
 
 | Service | URL | Notes |
 |---------|-----|-------|
-| OpenSubtitles v3 | `https://opensubtitles-v3.strem.io` | Most reliable, recommended |
-| Subscene | `https://subscene.strem.io` | Good alternative |
+| OpenSubtitles v3 | `https://opensubtitles-v3.strem.io/manifest.json` | Most reliable, recommended |
+| Subscene | `https://subscene.strem.io/manifest.json` | Good alternative |
+
+**Note:** Both base URLs (e.g., `https://opensubtitles-v3.strem.io`) and manifest URLs (e.g., `https://opensubtitles-v3.strem.io/manifest.json`) are supported.
 
 ## Benefits
 
