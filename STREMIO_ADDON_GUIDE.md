@@ -194,13 +194,23 @@ Here's a complete example of configuring the OpenSubtitles Stremio addon:
 
 ### Using Multiple Addons
 
-Currently, LAMPA supports one Stremio addon at a time. However, it falls back to other subtitle sources if the addon doesn't find subtitles.
+**New Feature**: LAMPA now supports configuring multiple Stremio addons simultaneously!
 
-To switch addons:
+Instead of switching between addons, you can now:
+1. Configure multiple addon URLs in settings
+2. LAMPA will try each addon in order when searching for subtitles
+3. First addon to find matching subtitles is used
+4. Better subtitle coverage across different sources
+
+For detailed information, see [MULTIPLE_ADDONS_GUIDE.md](MULTIPLE_ADDONS_GUIDE.md).
+
+To configure multiple addons:
 1. Go to Settings
-2. Change the Stremio Addon URL
-3. Save
-4. The new addon will be used for future videos
+2. Scroll to "Stremio Addon URLs" section
+3. Enter first addon URL and click "Add Addon URL"
+4. Repeat for additional addons
+5. Save settings
+6. All addons will be tried automatically when playing videos
 
 ### Creating Your Own Addon
 
@@ -217,7 +227,7 @@ If you want to create a custom Stremio addon for subtitles:
 A: Most subtitle addons don't require authentication. Just enter the URL.
 
 **Q: Can I use multiple Stremio addons?**
-A: Currently, only one addon URL can be configured at a time.
+A: Yes! You can now configure multiple addon URLs. All will be tried when searching for subtitles. See [MULTIPLE_ADDONS_GUIDE.md](MULTIPLE_ADDONS_GUIDE.md) for details.
 
 **Q: Do Stremio addons work offline?**
 A: No, an internet connection is required to query the addon.

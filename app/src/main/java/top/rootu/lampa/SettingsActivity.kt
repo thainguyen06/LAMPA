@@ -95,7 +95,7 @@ class SettingsActivity : BaseActivity() {
     private fun addAddonUrl() {
         val url = editNewAddonUrl.text.toString().trim()
         
-        if (url.isEmpty()) {
+        if (url.isBlank()) {
             App.toast("Please enter a URL", true)
             return
         }

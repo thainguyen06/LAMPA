@@ -140,7 +140,7 @@ object SubtitlePreferences {
         val multiUrlString = prefs.getString(KEY_STREMIO_ADDON_URLS, null)
         if (!multiUrlString.isNullOrEmpty()) {
             return multiUrlString.split(ADDON_URL_SEPARATOR)
-                .filter { it.isNotEmpty() }
+                .filter { it.isNotBlank() }
         }
         
         // Fall back to legacy single URL storage for backward compatibility
@@ -160,7 +160,7 @@ object SubtitlePreferences {
      * Set all Stremio addon URLs, replacing any existing ones
      */
     fun setStremioAddonUrls(context: Context, urls: List<String>) {
-        val filteredUrls = urls.filter { it.isNotEmpty() }.distinct()
+        val filteredUrls = urls.filter { it.isNotBlank() }.distinct()
         val urlString = filteredUrls.joinToString(ADDON_URL_SEPARATOR)
         getPreferences(context).edit()
             .putString(KEY_STREMIO_ADDON_URLS, urlString)
@@ -172,11 +172,12 @@ object SubtitlePreferences {
      * Add a new Stremio addon URL
      */
     fun addStremioAddonUrl(context: Context, url: String) {
-        if (url.isEmpty()) return
+        if (url.isBlank()) return
         
+        val trimmedUrl = url.trim()
         val currentUrls = getStremioAddonUrls(context).toMutableList()
-        if (!currentUrls.contains(url)) {
-            currentUrls.add(url)
+        if (!currentUrls.contains(trimmedUrl)) {
+            currentUrls.add(trimmedUrl)
             setStremioAddonUrls(context, currentUrls)
         }
     }
