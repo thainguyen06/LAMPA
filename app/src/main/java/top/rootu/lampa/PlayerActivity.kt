@@ -82,6 +82,9 @@ class PlayerActivity : BaseActivity() {
     private var subtitleDownloader: SubtitleDownloader? = null
     private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
     
+    // Store subtitle URL passed via intent for later loading
+    private var pendingSubtitleUrl: String? = null
+    
     private val handler = Handler(Looper.getMainLooper())
     private var isControlsVisible = true
     private val hideControlsRunnable = Runnable {
@@ -169,10 +172,12 @@ class PlayerActivity : BaseActivity() {
         }
         if (!subtitleUrl.isNullOrEmpty()) {
             Log.d(TAG, "External subtitle URL: $subtitleUrl")
+            // Store subtitle URL to load after player starts
+            pendingSubtitleUrl = subtitleUrl
         }
 
         // Initialize LibVLC and start playback
-        initializePlayer(videoUrl, subtitleUrl)
+        initializePlayer(videoUrl, null) // Pass null for subtitle, we'll load it after playback starts
     }
 
     @SuppressLint("InlinedApi")
@@ -306,6 +311,12 @@ class PlayerActivity : BaseActivity() {
                                     setAspectRatio(savedRatio)
                                     Log.d(TAG, "Restored aspect ratio: $savedRatio")
                                 }
+                                
+                                // Load pending subtitle URL if provided
+                                pendingSubtitleUrl?.let { subtitleUrl ->
+                                    loadSubtitleFromUrl(subtitleUrl)
+                                    pendingSubtitleUrl = null // Clear after loading
+                                }
                             }
                         }
                         MediaPlayer.Event.Paused -> {
@@ -354,16 +365,8 @@ class PlayerActivity : BaseActivity() {
                 addOption(":codec=all")
                 addOption(":network-caching=1000")
                 
-                // Add external subtitle if provided
-                if (!subtitleUrl.isNullOrEmpty()) {
-                    try {
-                        // Using addOption for LibVLC 3.6.0 compatibility
-                        addOption(":input-slave=$subtitleUrl")
-                        Log.d(TAG, "Added external subtitle: $subtitleUrl")
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to add external subtitle", e)
-                    }
-                }
+                // Note: External subtitles are now loaded after playback starts using addSlave()
+                // This ensures proper subtitle transfer to the player
                 
                 // Add Media.EventListener to handle parsed tracks
                 setEventListener { mediaEvent ->
@@ -550,12 +553,49 @@ class PlayerActivity : BaseActivity() {
         val audioGroup = dialog.findViewById<RadioGroup>(R.id.audio_tracks_group)
         val subtitleGroup = dialog.findViewById<RadioGroup>(R.id.subtitle_tracks_group)
         val closeButton = dialog.findViewById<Button>(R.id.btn_close_tracks)
+        val btnViewList = dialog.findViewById<ImageButton>(R.id.btn_view_list)
+        val btnViewGrid = dialog.findViewById<ImageButton>(R.id.btn_view_grid)
         
-        // Populate audio tracks
-        populateAudioTracks(audioGroup, player)
+        // Track current view mode (default is list)
+        var isGridMode = false
         
-        // Populate subtitle tracks
-        populateSubtitleTracks(subtitleGroup, player)
+        // Function to update view mode buttons appearance
+        fun updateViewModeButtons() {
+            if (isGridMode) {
+                btnViewList?.setColorFilter(0xFF888888.toInt())
+                btnViewGrid?.setColorFilter(0xFFFFFFFF.toInt())
+            } else {
+                btnViewList?.setColorFilter(0xFFFFFFFF.toInt())
+                btnViewGrid?.setColorFilter(0xFF888888.toInt())
+            }
+        }
+        
+        // Function to populate tracks based on current view mode
+        fun refreshTracks() {
+            populateAudioTracks(audioGroup, player, isGridMode)
+            populateSubtitleTracks(subtitleGroup, player, isGridMode)
+        }
+        
+        // Initial population in list mode
+        refreshTracks()
+        updateViewModeButtons()
+        
+        // View mode toggle handlers
+        btnViewList?.setOnClickListener {
+            if (isGridMode) {
+                isGridMode = false
+                updateViewModeButtons()
+                refreshTracks()
+            }
+        }
+        
+        btnViewGrid?.setOnClickListener {
+            if (!isGridMode) {
+                isGridMode = true
+                updateViewModeButtons()
+                refreshTracks()
+            }
+        }
         
         // Handle audio track selection
         audioGroup.setOnCheckedChangeListener { _, checkedId ->
@@ -576,8 +616,11 @@ class PlayerActivity : BaseActivity() {
         dialog.show()
     }
 
-    private fun populateAudioTracks(audioGroup: RadioGroup, player: MediaPlayer) {
+    private fun populateAudioTracks(audioGroup: RadioGroup, player: MediaPlayer, isGridMode: Boolean) {
         audioGroup.removeAllViews()
+        
+        // Set orientation based on mode
+        audioGroup.orientation = if (isGridMode) RadioGroup.HORIZONTAL else RadioGroup.VERTICAL
         
         // Add null check to prevent crash when tracks are not yet loaded
         val audioTracks = player.audioTracks ?: emptyArray()
@@ -596,25 +639,56 @@ class PlayerActivity : BaseActivity() {
                 
                 val radioButton = RadioButton(this).apply {
                     id = 1000 + index
-                    text = trackName
-                    textSize = 16f
+                    text = if (isGridMode) {
+                        // In grid mode, show shortened track names
+                        val parts = trackName.split(" - ", " ", limit = 2)
+                        if (parts.isNotEmpty()) parts[0] else trackName
+                    } else {
+                        trackName
+                    }
+                    textSize = if (isGridMode) 14f else 16f
                     setTextColor(0xFFFFFFFF.toInt())
                     isChecked = (trackDescription.id == currentTrack)
+                    
+                    // In grid mode, make buttons more compact
+                    if (isGridMode) {
+                        val params = RadioGroup.LayoutParams(
+                            RadioGroup.LayoutParams.WRAP_CONTENT,
+                            RadioGroup.LayoutParams.WRAP_CONTENT
+                        ).apply {
+                            setMargins(8, 4, 8, 4)
+                        }
+                        layoutParams = params
+                    }
                 }
                 audioGroup.addView(radioButton)
             }
         }
     }
 
-    private fun populateSubtitleTracks(subtitleGroup: RadioGroup, player: MediaPlayer) {
+    private fun populateSubtitleTracks(subtitleGroup: RadioGroup, player: MediaPlayer, isGridMode: Boolean) {
         subtitleGroup.removeAllViews()
+        
+        // Set orientation based on mode
+        subtitleGroup.orientation = if (isGridMode) RadioGroup.HORIZONTAL else RadioGroup.VERTICAL
         
         // Add "Disabled" option
         val disabledButton = RadioButton(this).apply {
             id = 2000
             text = getString(R.string.track_disabled)
-            textSize = 16f
+            textSize = if (isGridMode) 14f else 16f
             setTextColor(0xFFFFFFFF.toInt())
+            
+            // In grid mode, make buttons more compact
+            if (isGridMode) {
+                val params = RadioGroup.LayoutParams(
+                    RadioGroup.LayoutParams.WRAP_CONTENT,
+                    RadioGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(8, 4, 8, 4)
+                }
+                layoutParams = params
+            }
         }
         subtitleGroup.addView(disabledButton)
         
@@ -631,12 +705,31 @@ class PlayerActivity : BaseActivity() {
             
             val radioButton = RadioButton(this).apply {
                 id = 2001 + index
-                text = trackName
-                textSize = 16f
+                text = if (isGridMode) {
+                    // In grid mode, show shortened track names
+                    val parts = trackName.split(" - ", " ", limit = 2)
+                    if (parts.isNotEmpty()) parts[0] else trackName
+                } else {
+                    trackName
+                }
+                textSize = if (isGridMode) 14f else 16f
                 setTextColor(0xFFFFFFFF.toInt())
                 isChecked = (trackDescription.id == currentTrack)
+                
+                // In grid mode, make buttons more compact
+                if (isGridMode) {
+                    val params = RadioGroup.LayoutParams(
+                        RadioGroup.LayoutParams.WRAP_CONTENT,
+                        RadioGroup.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        setMargins(8, 4, 8, 4)
+                    }
+                    layoutParams = params
+                }
             }
             subtitleGroup.addView(radioButton)
+        }
+    }
         }
     }
 
@@ -890,6 +983,69 @@ class PlayerActivity : BaseActivity() {
                 Log.e(TAG, "Error loading external subtitles", e)
             }
         }
+    }
+
+    /**
+     * Load subtitle from a direct URL after playback has started
+     * This method uses addSlave() which works for already-playing media
+     */
+    private fun loadSubtitleFromUrl(subtitleUrl: String) {
+        Log.d(TAG, "Loading subtitle from URL: $subtitleUrl")
+        
+        handler.postDelayed({
+            try {
+                // Store track count BEFORE adding to detect new track after registration delay
+                val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
+                
+                // Convert URL to proper URI format if needed
+                val subtitleUri = if (subtitleUrl.startsWith("file://") || 
+                                     subtitleUrl.startsWith("http://") || 
+                                     subtitleUrl.startsWith("https://")) {
+                    subtitleUrl
+                } else if (subtitleUrl.startsWith("/")) {
+                    // Local file path
+                    "file://$subtitleUrl"
+                } else {
+                    // Assume it's a URL
+                    subtitleUrl
+                }
+                
+                Log.d(TAG, "Adding subtitle URI: $subtitleUri")
+                
+                // Use addSlave to add subtitle to already playing media
+                // Type 0 = Subtitle, 1 = Audio
+                val added = mediaPlayer?.addSlave(0, subtitleUri, true)
+                
+                if (added == true) {
+                    Log.d(TAG, "Subtitle slave added successfully")
+                    
+                    // Wait a moment for the track to be registered
+                    handler.postDelayed({
+                        // Refresh tracks to get the new subtitle
+                        refreshTracks()
+                        
+                        // Try to auto-select the newly added subtitle
+                        val spuTracks = mediaPlayer?.spuTracks
+                        if (spuTracks != null && spuTracks.size > previousTrackCount) {
+                            // Select the last track (newly added one)
+                            val newTrack = spuTracks.last()
+                            mediaPlayer?.spuTrack = newTrack.id
+                            Log.d(TAG, "Auto-selected new subtitle track: ${newTrack.name}")
+                        } else {
+                            Log.w(TAG, "New subtitle track not detected in track list")
+                        }
+                    }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
+                    
+                    App.toast(R.string.subtitle_loaded, false)
+                } else {
+                    Log.e(TAG, "Failed to add subtitle slave")
+                    App.toast(R.string.subtitle_load_failed, true)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error adding subtitle from URL", e)
+                App.toast(R.string.subtitle_load_failed, true)
+            }
+        }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
     }
 
     private fun autoSelectPreferredTracks() {
