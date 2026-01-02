@@ -143,6 +143,8 @@
     <string name="subtitle_tracks">Subtitle Tracks</string>
     <string name="track_disabled">Disabled</string>
     <string name="track_unknown">Unknown</string>
+    <string name="view_mode_list">List View</string>
+    <string name="view_mode_grid">Grid View</string>
     <string name="subtitle_settings">Subtitle Settings</string>
     <string name="subtitle_font_size">Font Size</string>
     <string name="subtitle_font_color">Font Color</string>
