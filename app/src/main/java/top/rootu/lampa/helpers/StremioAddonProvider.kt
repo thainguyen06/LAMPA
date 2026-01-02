@@ -57,10 +57,12 @@ class StremioAddonProvider(
     
     override fun getName(): String {
         // Extract domain name from URL for better readability
+        // Use the processed base URL to ensure consistent naming
+        val baseUrl = getAddonUrl()
         val domain = try {
-            java.net.URL(addonUrl).host
+            java.net.URL(baseUrl).host
         } catch (e: Exception) {
-            addonUrl
+            baseUrl
         }
         return "Stremio Addon ($domain)"
     }
@@ -72,10 +74,22 @@ class StremioAddonProvider(
     
     /**
      * Get the configured Stremio addon base URL
+     * Handles both formats:
+     * - Base URL: https://opensubtitles-v3.strem.io
+     * - Manifest URL: https://opensubtitles-v3.strem.io/manifest.json
      */
     private fun getAddonUrl(): String {
+        var url = addonUrl.trim()
+        
         // Remove trailing slash if present
-        return addonUrl.trimEnd('/')
+        url = url.trimEnd('/')
+        
+        // If URL ends with /manifest.json, remove it to get base URL
+        if (url.endsWith("/manifest.json", ignoreCase = true)) {
+            url = url.substring(0, url.length - "/manifest.json".length)
+        }
+        
+        return url
     }
     
     /**

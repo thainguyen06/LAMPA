@@ -161,11 +161,11 @@
     <string name="subtitle_api_key">API Key</string>
     <string name="subtitle_api_key_hint">Enter OpenSubtitles API key</string>
     <string name="stremio_addon_url">Stremio Addon URL</string>
-    <string name="stremio_addon_url_hint">https://opensubtitles-v3.strem.io</string>
+    <string name="stremio_addon_url_hint">https://opensubtitles-v3.strem.io/manifest.json</string>
     <string name="stremio_addon_urls">Stremio Addon URLs</string>
     <string name="stremio_addon_add">Add Addon URL</string>
     <string name="stremio_addon_remove">Remove</string>
-    <string name="stremio_addon_enter_url">Enter addon URL</string>
+    <string name="stremio_addon_enter_url">Enter addon URL or manifest.json link</string>
     <string name="stremio_addon_no_addons">No Stremio addons configured</string>
     <string name="stremio_addon_empty_url">Please enter a URL</string>
     <string name="stremio_addon_duplicate">This addon URL is already added</string>
