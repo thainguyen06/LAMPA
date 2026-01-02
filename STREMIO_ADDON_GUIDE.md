@@ -38,13 +38,15 @@ Stremio addons follow a standard protocol that makes them easy to integrate. The
 ## Popular Stremio Subtitle Addons
 
 ### OpenSubtitles Addon
-- **URL**: `https://opensubtitles-v3.strem.io`
+- **URL**: `https://opensubtitles-v3.strem.io/manifest.json`
+- **Alternative**: `https://opensubtitles-v3.strem.io` (base URL format)
 - **Description**: Official OpenSubtitles addon for Stremio
 - **Languages**: Multiple languages supported
-- **Notes**: Most popular and reliable option
+- **Notes**: Most popular and reliable option. Supports mp4, mkv, and other file types.
 
 ### Subscene Addon
-- **URL**: `https://subscene.strem.io`
+- **URL**: `https://subscene.strem.io/manifest.json`
+- **Alternative**: `https://subscene.strem.io` (base URL format)
 - **Description**: Subscene subtitle database
 - **Languages**: Multiple languages supported
 - **Notes**: Good alternative to OpenSubtitles
@@ -183,12 +185,18 @@ Here's a complete example of configuring the OpenSubtitles Stremio addon:
 2. **Scroll to Subtitle Settings**
 3. **Enter in "Stremio Addon URL" field**:
    ```
-   https://opensubtitles-v3.strem.io
+   https://opensubtitles-v3.strem.io/manifest.json
    ```
+   (Or use the base URL: `https://opensubtitles-v3.strem.io`)
 4. **Click Save**
 5. **Play a video**
 6. **Wait for subtitle notification**: "External subtitle loaded"
 7. **Open track selection** to verify subtitle appears
+
+**URL Format Options:**
+- Full manifest link (recommended): `https://opensubtitles-v3.strem.io/manifest.json`
+- Base URL (also supported): `https://opensubtitles-v3.strem.io`
+- Both formats work identically - the app automatically handles both
 
 ## Advanced Usage
 
@@ -260,4 +268,4 @@ Stremio addon support provides a reliable, standardized way to access subtitles 
 - ✅ Automatic subtitle search and download
 - ✅ Falls back to other sources if needed
 
-Start by configuring the OpenSubtitles addon (`https://opensubtitles-v3.strem.io`) and enjoy automatic subtitle support!
+Start by configuring the OpenSubtitles addon (`https://opensubtitles-v3.strem.io/manifest.json` or `https://opensubtitles-v3.strem.io`) and enjoy automatic subtitle support!
