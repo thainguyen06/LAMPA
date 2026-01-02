@@ -79,14 +79,12 @@ class StremioAddonProvider(
      * - Manifest URL: https://opensubtitles-v3.strem.io/manifest.json
      */
     private fun getAddonUrl(): String {
-        var url = addonUrl.trim()
+        var url = addonUrl.trim().trimEnd('/')
         
-        // Remove trailing slash if present
-        url = url.trimEnd('/')
-        
-        // If URL ends with /manifest.json, remove it to get base URL
-        if (url.endsWith("/manifest.json", ignoreCase = true)) {
-            url = url.substring(0, url.length - "/manifest.json".length)
+        // If URL ends with /manifest.json (case-insensitive), remove it to get base URL
+        val manifestSuffix = "/manifest.json"
+        if (url.endsWith(manifestSuffix, ignoreCase = true)) {
+            url = url.dropLast(manifestSuffix.length)
         }
         
         return url
