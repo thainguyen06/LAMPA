@@ -6,6 +6,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.widget.SwitchCompat
+import androidx.core.content.ContextCompat
 import com.google.android.material.textfield.TextInputEditText
 import top.rootu.lampa.helpers.Prefs.appPlayer
 import top.rootu.lampa.helpers.Prefs.PLAYER_LAMPA
@@ -96,12 +97,12 @@ class SettingsActivity : BaseActivity() {
         val url = editNewAddonUrl.text.toString().trim()
         
         if (url.isBlank()) {
-            App.toast("Please enter a URL", true)
+            App.toast(R.string.stremio_addon_empty_url, true)
             return
         }
         
         if (currentAddonUrls.contains(url)) {
-            App.toast("This addon URL is already added", true)
+            App.toast(R.string.stremio_addon_duplicate, true)
             return
         }
         
@@ -123,7 +124,7 @@ class SettingsActivity : BaseActivity() {
             val noAddonsText = TextView(this).apply {
                 text = getString(R.string.stremio_addon_no_addons)
                 textSize = 14f
-                setTextColor(resources.getColor(android.R.color.darker_gray, null))
+                setTextColor(ContextCompat.getColor(this@SettingsActivity, android.R.color.darker_gray))
                 setPadding(0, 16, 0, 16)
             }
             addonUrlsContainer.addView(noAddonsText)
@@ -143,14 +144,14 @@ class SettingsActivity : BaseActivity() {
                 val urlText = TextView(this).apply {
                     text = url
                     textSize = 14f
-                    setTextColor(resources.getColor(android.R.color.white, null))
+                    setTextColor(ContextCompat.getColor(this@SettingsActivity, android.R.color.white))
                     layoutParams = LinearLayout.LayoutParams(
                         0,
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         1f
                     )
                     setPadding(16, 12, 16, 12)
-                    setBackgroundColor(resources.getColor(android.R.color.darker_gray, null))
+                    setBackgroundColor(ContextCompat.getColor(this@SettingsActivity, android.R.color.darker_gray))
                 }
                 
                 val removeButton = Button(this).apply {
