@@ -25,19 +25,22 @@ import java.util.concurrent.TimeUnit
  * 
  * Features:
  * - Supports any Stremio addon that provides subtitles
- * - Configurable addon URL
+ * - Configurable addon URL per instance
  * - Standard JSON-based API
  * - No authentication required for most addons
  * 
  * Requirements:
- * - Valid Stremio addon URL must be configured
+ * - Valid Stremio addon URL must be provided
  * - Addon must support subtitle resources
  * 
  * Popular Stremio Subtitle Addons:
  * - OpenSubtitles: https://opensubtitles-v3.strem.io
  * - Subscene: https://subscene.strem.io
  */
-class StremioAddonProvider(private val context: Context) : SubtitleProvider {
+class StremioAddonProvider(
+    private val context: Context,
+    private val addonUrl: String
+) : SubtitleProvider {
     
     companion object {
         private const val TAG = "StremioAddonProvider"
@@ -52,20 +55,27 @@ class StremioAddonProvider(private val context: Context) : SubtitleProvider {
         }
     }
     
-    override fun getName(): String = "Stremio Addon"
+    override fun getName(): String {
+        // Extract domain name from URL for better readability
+        val domain = try {
+            java.net.URL(addonUrl).host
+        } catch (e: Exception) {
+            addonUrl
+        }
+        return "Stremio Addon ($domain)"
+    }
     
     override fun isEnabled(): Boolean {
-        val addonUrl = SubtitlePreferences.getStremioAddonUrl(context)
-        return !addonUrl.isNullOrEmpty()
+        // Provider is enabled if addon URL is not empty
+        return addonUrl.isNotEmpty()
     }
     
     /**
      * Get the configured Stremio addon base URL
      */
-    private fun getAddonUrl(): String? {
-        val url = SubtitlePreferences.getStremioAddonUrl(context)
+    private fun getAddonUrl(): String {
         // Remove trailing slash if present
-        return url?.trimEnd('/')
+        return addonUrl.trimEnd('/')
     }
     
     /**
@@ -116,17 +126,13 @@ class StremioAddonProvider(private val context: Context) : SubtitleProvider {
         language: String
     ): List<SubtitleSearchResult> = withContext(Dispatchers.IO) {
         try {
-            val addonUrl = getAddonUrl()
-            if (addonUrl.isNullOrEmpty()) {
-                Log.w(TAG, "No Stremio addon URL configured")
-                return@withContext emptyList()
-            }
+            val baseAddonUrl = getAddonUrl()
             
-            Log.d(TAG, "Searching subtitles via Stremio addon: $addonUrl")
+            Log.d(TAG, "Searching subtitles via Stremio addon: $baseAddonUrl")
             Log.d(TAG, "Query: $query, IMDB: $imdbId, Language: $language")
             
             // Verify addon supports subtitles
-            if (!verifyAddonSupportsSubtitles(addonUrl)) {
+            if (!verifyAddonSupportsSubtitles(baseAddonUrl)) {
                 Log.e(TAG, "Addon does not support subtitles")
                 return@withContext emptyList()
             }
@@ -138,12 +144,12 @@ class StremioAddonProvider(private val context: Context) : SubtitleProvider {
             val subtitleEndpoint = if (!imdbId.isNullOrEmpty()) {
                 // Use IMDB ID if available (more accurate)
                 // Assume movie type for now, could be enhanced to detect type
-                "$addonUrl/subtitles/movie/$imdbId.json"
+                "$baseAddonUrl/subtitles/movie/$imdbId.json"
             } else {
                 // Some addons support search by query
                 // Try common patterns
                 val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
-                "$addonUrl/subtitles/search/$encodedQuery.json"
+                "$baseAddonUrl/subtitles/search/$encodedQuery.json"
             }
             
             Log.d(TAG, "Calling Stremio addon API: $subtitleEndpoint")

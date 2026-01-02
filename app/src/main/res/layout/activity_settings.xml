@@ -133,26 +133,56 @@
                 android:singleLine="true"/>
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Stremio Addon URL -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/input_layout_stremio_addon_url"
+        <!-- Stremio Addon URLs Section -->
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/stremio_addon_url"
+            android:text="@string/stremio_addon_urls"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp"
+            android:paddingBottom="8dp"/>
+
+        <!-- Container for existing addon URLs -->
+        <LinearLayout
+            android:id="@+id/addon_urls_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="8dp"/>
+
+        <!-- Input for new addon URL -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/input_layout_new_addon_url"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/stremio_addon_enter_url"
             android:textColorHint="@android:color/white"
             app:hintTextColor="@android:color/white"
             app:boxStrokeColor="@android:color/white"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-            android:layout_marginTop="16dp">
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/edit_stremio_addon_url"
+                android:id="@+id/edit_new_addon_url"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textColor="@android:color/white"
                 android:inputType="textUri"
                 android:singleLine="true"/>
         </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Add Addon Button -->
+        <Button
+            android:id="@+id/btn_add_addon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/stremio_addon_add"
+            android:textColor="@android:color/black"
+            android:backgroundTint="@android:color/white"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="16dp"/>
 
         <!-- Action Buttons -->
         <LinearLayout
