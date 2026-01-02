@@ -35,15 +35,23 @@ class SubtitleDownloader(private val context: Context) {
     }
     
     // Initialize all available subtitle providers
-    // Stremio addon is prioritized first for reliability
+    // Stremio addons are prioritized first for reliability
     private val providers: List<SubtitleProvider> by lazy {
-        listOf(
-            StremioAddonProvider(context),  // Prioritize Stremio addon
-            OpenSubtitlesProvider(context),
-            SubSourceProvider(context),
-            SubDLProvider(context),
-            SubHeroProvider(context)
-        )
+        val providerList = mutableListOf<SubtitleProvider>()
+        
+        // Add a StremioAddonProvider for each configured addon URL
+        val stremioUrls = SubtitlePreferences.getStremioAddonUrls(context)
+        for (url in stremioUrls) {
+            providerList.add(StremioAddonProvider(context, url))
+        }
+        
+        // Add other providers
+        providerList.add(OpenSubtitlesProvider(context))
+        providerList.add(SubSourceProvider(context))
+        providerList.add(SubDLProvider(context))
+        providerList.add(SubHeroProvider(context))
+        
+        providerList
     }
     
     /**
