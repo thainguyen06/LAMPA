@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@drawable/dialog_background"
+    android:gravity="center">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/subtitle_debug_title"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/white"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/subtitle_debug_description"
+        android:textSize="14sp"
+        android:textColor="@android:color/white"
+        android:alpha="0.8"
+        android:gravity="center"
+        android:layout_marginBottom="24dp" />
+
+    <Button
+        android:id="@+id/btn_export_logs"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/subtitle_debug_export"
+        android:textSize="16sp"
+        android:padding="16dp"
+        android:layout_marginBottom="8dp"
+        style="?android:attr/borderlessButtonStyle"
+        android:textColor="@android:color/white"
+        android:background="@drawable/button_background" />
+
+    <Button
+        android:id="@+id/btn_trigger_crash"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/subtitle_debug_crash"
+        android:textSize="16sp"
+        android:padding="16dp"
+        android:layout_marginBottom="8dp"
+        style="?android:attr/borderlessButtonStyle"
+        android:textColor="@android:color/holo_red_light"
+        android:background="@drawable/button_background" />
+
+    <Button
+        android:id="@+id/btn_clear_logs"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/subtitle_debug_clear"
+        android:textSize="16sp"
+        android:padding="16dp"
+        android:layout_marginBottom="8dp"
+        style="?android:attr/borderlessButtonStyle"
+        android:textColor="@android:color/white"
+        android:alpha="0.7"
+        android:background="@drawable/button_background" />
+
+    <Button
+        android:id="@+id/btn_close_debug"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/close"
+        android:textSize="16sp"
+        android:padding="16dp"
+        style="?android:attr/borderlessButtonStyle"
+        android:textColor="@android:color/white"
+        android:alpha="0.7"
+        android:background="@drawable/button_background" />
+
+</LinearLayout>

@@ -142,12 +142,16 @@ class StremioAddonProvider(
             
             Log.d(TAG, "Searching subtitles via Stremio addon: $baseAddonUrl")
             Log.d(TAG, "Query: $query, IMDB: $imdbId, Language: $language")
+            SubtitleDebugHelper.logInfo(getName(), "Starting search: query='$query', imdbId='$imdbId', lang='$language', addon='$baseAddonUrl'")
             
             // Verify addon supports subtitles
             if (!verifyAddonSupportsSubtitles(baseAddonUrl)) {
                 Log.e(TAG, "Addon does not support subtitles")
+                SubtitleDebugHelper.logError(getName(), "Addon does not support subtitles or manifest check failed")
                 return@withContext emptyList()
             }
+            
+            SubtitleDebugHelper.logDebug(getName(), "Addon manifest verified, supports subtitles")
             
             // For Stremio, we need IMDB ID or use a search query
             // Most subtitle addons expect: /subtitles/{type}/{id}.json
@@ -165,6 +169,7 @@ class StremioAddonProvider(
             }
             
             Log.d(TAG, "Calling Stremio addon API: $subtitleEndpoint")
+            SubtitleDebugHelper.logInfo(getName(), "API URL: $subtitleEndpoint")
             
             val request = Request.Builder()
                 .url(subtitleEndpoint)
@@ -172,13 +177,21 @@ class StremioAddonProvider(
             
             val response = httpClient.newCall(request).execute()
             Log.d(TAG, "Stremio addon API response code: ${response.code()}")
+            SubtitleDebugHelper.logInfo(getName(), "HTTP response code: ${response.code()}")
             
             if (!response.isSuccessful) {
                 Log.e(TAG, "Subtitle search failed: ${response.code()}")
+                SubtitleDebugHelper.logError(getName(), "Subtitle search failed: HTTP ${response.code()}")
                 return@withContext emptyList()
             }
             
-            val body = response.body()?.string() ?: return@withContext emptyList()
+            val body = response.body()?.string() ?: run {
+                SubtitleDebugHelper.logError(getName(), "Response body is empty")
+                return@withContext emptyList()
+            }
+            
+            SubtitleDebugHelper.logDebug(getName(), "Response body length: ${body.length} bytes")
+            
             val jsonResponse = JSONObject(body)
             
             val results = mutableListOf<SubtitleSearchResult>()
@@ -187,6 +200,7 @@ class StremioAddonProvider(
             // { "subtitles": [ { "id": "...", "url": "...", "lang": "..." } ] }
             if (jsonResponse.has("subtitles")) {
                 val subtitlesArray = jsonResponse.getJSONArray("subtitles")
+                SubtitleDebugHelper.logInfo(getName(), "Found ${subtitlesArray.length()} subtitle entries in response")
                 
                 for (i in 0 until subtitlesArray.length()) {
                     val subtitle = subtitlesArray.getJSONObject(i)
@@ -203,24 +217,30 @@ class StremioAddonProvider(
                     val url = subtitle.optString("url", "")
                     
                     if (url.isNotEmpty()) {
+                        val label = subtitle.optString("label", query)
                         results.add(SubtitleSearchResult(
                             id = id,
-                            name = subtitle.optString("label", query),
+                            name = label,
                             language = subtitleLang.ifEmpty { language },
                             downloads = 0, // Stremio addons don't typically provide download count
                             rating = 0f,   // Stremio addons don't typically provide ratings
                             downloadUrl = url,
                             provider = getName()
                         ))
+                        SubtitleDebugHelper.logDebug(getName(), "Added result: id='$id', label='$label', url='$url'")
                     }
                 }
+            } else {
+                SubtitleDebugHelper.logWarning(getName(), "Response has no 'subtitles' field")
             }
             
             Log.d(TAG, "Found ${results.size} subtitle(s) from Stremio addon")
+            SubtitleDebugHelper.logInfo(getName(), "Search completed with ${results.size} results")
             return@withContext results
             
         } catch (e: Exception) {
             Log.e(TAG, "Error searching subtitles via Stremio addon", e)
+            SubtitleDebugHelper.logError(getName(), "Exception during search: ${e.message}", e)
             return@withContext emptyList()
         }
     }
@@ -228,24 +248,31 @@ class StremioAddonProvider(
     override suspend fun download(result: SubtitleSearchResult): String? = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Downloading subtitle from: ${result.downloadUrl}")
+            SubtitleDebugHelper.logInfo(getName(), "Starting download: name='${result.name}', url='${result.downloadUrl}'")
             
             val request = Request.Builder()
                 .url(result.downloadUrl)
                 .build()
             
             val response = httpClient.newCall(request).execute()
+            SubtitleDebugHelper.logInfo(getName(), "Download response: HTTP ${response.code()}")
             
             if (!response.isSuccessful) {
                 Log.e(TAG, "Subtitle download failed: ${response.code()}")
+                SubtitleDebugHelper.logError(getName(), "Subtitle download failed: HTTP ${response.code()}")
                 return@withContext null
             }
             
-            val fileBody = response.body() ?: return@withContext null
+            val fileBody = response.body() ?: run {
+                SubtitleDebugHelper.logError(getName(), "Response body is empty")
+                return@withContext null
+            }
             
             // Create cache directory
             val cacheDir = File(context.cacheDir, SUBTITLE_CACHE_DIR)
             if (!cacheDir.exists()) {
-                cacheDir.mkdirs()
+                val created = cacheDir.mkdirs()
+                SubtitleDebugHelper.logDebug(getName(), "Cache directory created: $created")
             }
             
             // Determine file extension from content type or URL
@@ -260,21 +287,26 @@ class StremioAddonProvider(
                 else -> "srt" // Default to SRT
             }
             
+            SubtitleDebugHelper.logDebug(getName(), "Detected subtitle format: $extension")
+            
             // Save subtitle file
             val timestamp = System.currentTimeMillis()
             val subtitleFile = File(cacheDir, "subtitle_${result.language}_${timestamp}.$extension")
             
+            var bytesWritten = 0L
             FileOutputStream(subtitleFile).use { output ->
                 fileBody.byteStream().use { input ->
-                    input.copyTo(output)
+                    bytesWritten = input.copyTo(output)
                 }
             }
             
             Log.d(TAG, "Subtitle downloaded successfully: ${subtitleFile.absolutePath}")
+            SubtitleDebugHelper.logInfo(getName(), "Download successful: ${subtitleFile.absolutePath} (${bytesWritten} bytes)")
             return@withContext subtitleFile.absolutePath
             
         } catch (e: Exception) {
             Log.e(TAG, "Error downloading subtitle", e)
+            SubtitleDebugHelper.logError(getName(), "Exception during download: ${e.message}", e)
             return@withContext null
         }
     }

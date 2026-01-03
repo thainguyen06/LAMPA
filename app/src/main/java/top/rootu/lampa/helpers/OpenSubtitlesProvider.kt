@@ -155,17 +155,24 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
     ): List<SubtitleSearchResult> = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Searching subtitles for: $query (IMDB: $imdbId, Lang: $language)")
+            SubtitleDebugHelper.logInfo(getName(), "Starting search: query='$query', imdbId='$imdbId', lang='$language'")
             
             if (!isEnabled()) {
                 Log.w(TAG, "Provider not enabled - missing credentials")
+                SubtitleDebugHelper.logWarning(getName(), "Provider not enabled - missing credentials")
                 return@withContext emptyList()
             }
+            
+            SubtitleDebugHelper.logDebug(getName(), "Provider is enabled, attempting authentication")
             
             // Get authentication token (API key or JWT token)
             val authToken = getAuthToken() ?: run {
                 Log.e(TAG, "Failed to get authentication token")
+                SubtitleDebugHelper.logError(getName(), "Failed to get authentication token - check API key or username/password")
                 return@withContext emptyList()
             }
+            
+            SubtitleDebugHelper.logDebug(getName(), "Authentication successful")
             
             // Build search parameters with proper URL encoding
             val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
@@ -180,6 +187,7 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
             
             val searchUrl = "$API_BASE_URL/subtitles$searchParams"
             Log.d(TAG, "Calling OpenSubtitles API: $searchUrl")
+            SubtitleDebugHelper.logInfo(getName(), "API URL: $searchUrl")
             
             val request = Request.Builder()
                 .url(searchUrl)
@@ -189,22 +197,32 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
                 .build()
             
             Log.d(TAG, "Making search request to OpenSubtitles...")
+            SubtitleDebugHelper.logDebug(getName(), "Sending HTTP request...")
             val response = httpClient.newCall(request).execute()
             Log.d(TAG, "OpenSubtitles API response code: ${response.code()}")
+            SubtitleDebugHelper.logInfo(getName(), "HTTP response code: ${response.code()}")
             
             if (!response.isSuccessful) {
                 val errorBody = response.body()?.string()
                 Log.e(TAG, "Search failed: ${response.code()} - $errorBody")
+                SubtitleDebugHelper.logError(getName(), "Search failed: HTTP ${response.code()} - $errorBody")
                 return@withContext emptyList()
             }
             
-            val body = response.body()?.string() ?: return@withContext emptyList()
+            val body = response.body()?.string() ?: run {
+                SubtitleDebugHelper.logError(getName(), "Response body is empty")
+                return@withContext emptyList()
+            }
+            
+            SubtitleDebugHelper.logDebug(getName(), "Response body length: ${body.length} bytes")
+            
             val jsonResponse = JSONObject(body)
             
             val results = mutableListOf<SubtitleSearchResult>()
             
             if (jsonResponse.has("data")) {
                 val dataArray = jsonResponse.getJSONArray("data")
+                SubtitleDebugHelper.logInfo(getName(), "Found ${dataArray.length()} subtitle entries in response")
                 
                 for (i in 0 until dataArray.length().coerceAtMost(5)) {
                     val item = dataArray.getJSONObject(i)
@@ -216,25 +234,31 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
                         val fileId = file.optInt("file_id", 0)
                         
                         if (fileId > 0) {
+                            val releaseName = attributes.optString("release", "Unknown")
                             results.add(SubtitleSearchResult(
                                 id = fileId.toString(),
-                                name = attributes.optString("release", "Unknown"),
+                                name = releaseName,
                                 language = attributes.optString("language", language),
                                 downloads = attributes.optInt("download_count", 0),
                                 rating = attributes.optDouble("ratings", 0.0).toFloat(),
                                 downloadUrl = "$API_BASE_URL/download",
                                 provider = getName()
                             ))
+                            SubtitleDebugHelper.logDebug(getName(), "Added result: fileId=$fileId, release='$releaseName'")
                         }
                     }
                 }
+            } else {
+                SubtitleDebugHelper.logWarning(getName(), "Response has no 'data' field")
             }
             
             Log.d(TAG, "Found ${results.size} results")
+            SubtitleDebugHelper.logInfo(getName(), "Search completed with ${results.size} results")
             return@withContext results
             
         } catch (e: Exception) {
             Log.e(TAG, "Error searching subtitles", e)
+            SubtitleDebugHelper.logError(getName(), "Exception during search: ${e.message}", e)
             return@withContext emptyList()
         }
     }
@@ -242,10 +266,12 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
     override suspend fun download(result: SubtitleSearchResult): String? = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Downloading subtitle: ${result.name}")
+            SubtitleDebugHelper.logInfo(getName(), "Starting download: name='${result.name}', id='${result.id}'")
             
             // Get authentication token (API key or JWT token)
             val authToken = getAuthToken() ?: run {
                 Log.e(TAG, "Failed to get authentication token")
+                SubtitleDebugHelper.logError(getName(), "Failed to get authentication token for download")
                 return@withContext null
             }
             
@@ -253,6 +279,8 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
             val requestBody = JSONObject().apply {
                 put("file_id", result.id.toInt())
             }.toString()
+            
+            SubtitleDebugHelper.logDebug(getName(), "Requesting download link for file_id=${result.id}")
             
             val mediaType = MediaType.parse("application/json")
             val request = Request.Builder()
@@ -265,21 +293,30 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
                 .build()
             
             val response = httpClient.newCall(request).execute()
+            SubtitleDebugHelper.logInfo(getName(), "Download request response: HTTP ${response.code()}")
             
             if (!response.isSuccessful) {
                 val errorBody = response.body()?.string()
                 Log.e(TAG, "Download request failed: ${response.code()} - $errorBody")
+                SubtitleDebugHelper.logError(getName(), "Download request failed: HTTP ${response.code()} - $errorBody")
                 return@withContext null
             }
             
-            val body = response.body()?.string() ?: return@withContext null
+            val body = response.body()?.string() ?: run {
+                SubtitleDebugHelper.logError(getName(), "Download response body is empty")
+                return@withContext null
+            }
+            
             val jsonResponse = JSONObject(body)
             
             val downloadLink = jsonResponse.optString("link")
             if (downloadLink.isEmpty()) {
                 Log.e(TAG, "No download link in response")
+                SubtitleDebugHelper.logError(getName(), "No download link in API response")
                 return@withContext null
             }
+            
+            SubtitleDebugHelper.logDebug(getName(), "Got download link: $downloadLink")
             
             // Download the actual subtitle file
             val fileRequest = Request.Builder()
@@ -287,18 +324,24 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
                 .build()
             
             val fileResponse = httpClient.newCall(fileRequest).execute()
+            SubtitleDebugHelper.logInfo(getName(), "File download response: HTTP ${fileResponse.code()}")
             
             if (!fileResponse.isSuccessful) {
                 Log.e(TAG, "File download failed: ${fileResponse.code()}")
+                SubtitleDebugHelper.logError(getName(), "File download failed: HTTP ${fileResponse.code()}")
                 return@withContext null
             }
             
-            val fileBody = fileResponse.body() ?: return@withContext null
+            val fileBody = fileResponse.body() ?: run {
+                SubtitleDebugHelper.logError(getName(), "File response body is empty")
+                return@withContext null
+            }
             
             // Create cache directory
             val cacheDir = File(context.cacheDir, SUBTITLE_CACHE_DIR)
             if (!cacheDir.exists()) {
-                cacheDir.mkdirs()
+                val created = cacheDir.mkdirs()
+                SubtitleDebugHelper.logDebug(getName(), "Cache directory created: $created")
             }
             
             // Save subtitle file
@@ -308,22 +351,26 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
             // Handle potential gzip compression
             val inputStream = fileBody.byteStream()
             val finalStream = if (fileResponse.header("Content-Encoding") == "gzip") {
+                SubtitleDebugHelper.logDebug(getName(), "Response is gzip compressed")
                 GZIPInputStream(inputStream)
             } else {
                 inputStream
             }
             
+            var bytesWritten = 0L
             FileOutputStream(subtitleFile).use { output ->
                 finalStream.use { input ->
-                    input.copyTo(output)
+                    bytesWritten = input.copyTo(output)
                 }
             }
             
             Log.d(TAG, "Subtitle downloaded successfully: ${subtitleFile.absolutePath}")
+            SubtitleDebugHelper.logInfo(getName(), "Download successful: ${subtitleFile.absolutePath} (${bytesWritten} bytes)")
             return@withContext subtitleFile.absolutePath
             
         } catch (e: Exception) {
             Log.e(TAG, "Error downloading subtitle", e)
+            SubtitleDebugHelper.logError(getName(), "Exception during download: ${e.message}", e)
             return@withContext null
         }
     }
