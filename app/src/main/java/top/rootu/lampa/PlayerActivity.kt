@@ -114,7 +114,9 @@ class PlayerActivity : BaseActivity() {
         private const val SEEK_TIME_MS = 10000L // 10 seconds
         private const val CONTROLS_HIDE_DELAY = 3000L // 3 seconds
         private const val TRACK_LOADING_DELAY_MS = 2000L // 2 seconds - Wait for tracks to load
-        private const val SUBTITLE_TRACK_REGISTRATION_DELAY_MS = 500L // 0.5 seconds - Wait for subtitle track to register after addSlave
+        private const val SUBTITLE_TRACK_REGISTRATION_DELAY_MS = 1500L // 1.5 seconds - Wait for subtitle track to register after addSlave (increased from 0.5s)
+        private const val SUBTITLE_TRACK_RETRY_DELAY_MS = 1000L // 1 second - Delay between subtitle track selection retries
+        private const val SUBTITLE_TRACK_MAX_RETRIES = 3 // Maximum retries for subtitle track selection
         private const val SYSTEM_TIME_UPDATE_INTERVAL = 60000L // 1 minute
         private const val MAX_RETRY_ATTEMPTS = 3 // Maximum number of retry attempts for network errors
         private const val INITIAL_RETRY_DELAY_MS = 2000L // Initial retry delay (2 seconds)
@@ -305,13 +307,25 @@ class PlayerActivity : BaseActivity() {
                 add("--audio-time-stretch") // Better audio sync
                 add("-vvv") // Verbose logging for debugging
                 
-                // Network stream optimization
-                // Increase network caching to handle unstable connections better
-                // Value in milliseconds: higher values = more buffering but better stability
-                // Recommended: 3000-10000ms depending on connection quality
-                // For slow connections, consider increasing to 5000-10000ms
-                add("--network-caching=5000") // 5 seconds cache for network streams (increased from 3s)
-                add("--live-caching=5000") // 5 seconds cache for live streams (increased from 3s)
+                // Network stream optimization for high latency/unstable connections
+                // Increased caching values to handle extreme latency (up to 14+ seconds observed in logs)
+                // Higher values = more buffering but better stability and fewer dropped frames
+                add("--network-caching=10000") // 10 seconds cache for network streams (increased from 5s)
+                add("--live-caching=10000") // 10 seconds cache for live streams (increased from 5s)
+                
+                // Clock synchronization options to handle audio/video desync
+                // These settings help when audio/video streams are severely out of sync
+                add("--clock-jitter=5000") // Allow up to 5 second jitter before correction
+                add("--clock-synchro=0") // 0 = default sync, helps with streams that have timing issues
+                
+                // Audio synchronization
+                add("--audio-desync=0") // No additional audio delay - let VLC handle sync automatically
+                
+                // H.264 decoder options to handle non-IDR frames better
+                // These help when stream has missing keyframes (IDR frames)
+                add("--avcodec-skiploopfilter=0") // 0 = none (don't skip), ensures proper frame decoding
+                add("--avcodec-skip-frame=0") // 0 = none, decode all frames including non-IDR
+                add("--avcodec-skip-idct=0") // 0 = none, don't skip IDCT for better quality
                 
                 // Connection timeout settings to detect issues faster
                 add("--http-reconnect") // Enable automatic HTTP reconnection
@@ -389,11 +403,16 @@ class PlayerActivity : BaseActivity() {
                         MediaPlayer.Event.ESAdded -> {
                             // ES (Elementary Stream) added - new track available
                             // Note: This event fires for ANY track type (audio, video, subtitle)
-                            // We refresh the track list but don't auto-select here to avoid
-                            // changing tracks unexpectedly. Track selection is handled by the
-                            // delay-based logic after addSlave() which checks track count changes.
+                            // Log track information for debugging
                             Log.d(TAG, "ESAdded event: New track added to player")
-                            SubtitleDebugHelper.logInfo("PlayerActivity", "ESAdded event: refreshing tracks")
+                            SubtitleDebugHelper.logInfo("PlayerActivity", "ESAdded event detected")
+                            
+                            // Log current track counts for debugging
+                            val audioCount = player.audioTracks?.size ?: 0
+                            val videoCount = player.videoTracksCount
+                            val subtitleCount = player.spuTracks?.size ?: 0
+                            SubtitleDebugHelper.logDebug("PlayerActivity", "Current tracks - Audio: $audioCount, Video: $videoCount, Subtitle: $subtitleCount")
+                            
                             runOnUiThread {
                                 refreshTracks()
                             }
@@ -410,7 +429,7 @@ class PlayerActivity : BaseActivity() {
                 
                 // Network caching - match LibVLC global settings
                 // This ensures consistent behavior across the media pipeline
-                addOption(":network-caching=5000") // Increased to 5 seconds to match LibVLC settings
+                addOption(":network-caching=10000") // Increased to 10 seconds to match LibVLC settings
                 
                 // HTTP specific options for better stream handling
                 addOption(":http-reconnect") // Enable HTTP reconnection on errors
@@ -1024,28 +1043,12 @@ class PlayerActivity : BaseActivity() {
                                 Log.d(TAG, "Subtitle slave added successfully")
                                 SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle slave added successfully to LibVLC")
                                 
-                                // Wait a moment for the track to be registered
+                                // Wait a moment for the track to be registered, then retry selection
                                 // LibVLC needs time to parse and register the new subtitle track
                                 handler.postDelayed({
-                                    // Refresh tracks to get the new subtitle
-                                    refreshTracks()
-                                    
-                                    // Try to auto-select the newly added subtitle
-                                    val spuTracks = mediaPlayer?.spuTracks
-                                    if (spuTracks != null && spuTracks.size > previousTrackCount) {
-                                        // Select the last track (newly added one)
-                                        // This works because LibVLC appends new tracks to the end
-                                        val newTrack = spuTracks.last()
-                                        mediaPlayer?.spuTrack = newTrack.id
-                                        Log.d(TAG, "Auto-selected new subtitle track: ${newTrack.name}")
-                                        SubtitleDebugHelper.logInfo("PlayerActivity", "Auto-selected subtitle track: ${newTrack.name}")
-                                    } else {
-                                        Log.w(TAG, "New subtitle track not detected in track list")
-                                        SubtitleDebugHelper.logWarning("PlayerActivity", "New subtitle track not detected after registration delay")
-                                    }
+                                    retrySubtitleTrackSelection(previousTrackCount)
                                 }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
                                 
-                                App.toast(R.string.subtitle_loaded, false)
                             } else {
                                 Log.e(TAG, "Failed to add subtitle slave")
                                 SubtitleDebugHelper.logError("PlayerActivity", "addSlave() returned false")
@@ -1138,26 +1141,11 @@ class PlayerActivity : BaseActivity() {
                     Log.d(TAG, "Subtitle slave added successfully")
                     SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle slave added successfully")
                     
-                    // Wait a moment for the track to be registered
+                    // Wait a moment for the track to be registered, then retry selection
                     handler.postDelayed({
-                        // Refresh tracks to get the new subtitle
-                        refreshTracks()
-                        
-                        // Try to auto-select the newly added subtitle
-                        val spuTracks = mediaPlayer?.spuTracks
-                        if (spuTracks != null && spuTracks.size > previousTrackCount) {
-                            // Select the last track (newly added one)
-                            val newTrack = spuTracks.last()
-                            mediaPlayer?.spuTrack = newTrack.id
-                            Log.d(TAG, "Auto-selected new subtitle track: ${newTrack.name}")
-                            SubtitleDebugHelper.logInfo("PlayerActivity", "Auto-selected subtitle track: ${newTrack.name}")
-                        } else {
-                            Log.w(TAG, "New subtitle track not detected in track list")
-                            SubtitleDebugHelper.logWarning("PlayerActivity", "New subtitle track not detected after registration delay")
-                        }
+                        retrySubtitleTrackSelection(previousTrackCount)
                     }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
                     
-                    App.toast(R.string.subtitle_loaded, false)
                 } else {
                     Log.e(TAG, "Failed to add subtitle slave")
                     SubtitleDebugHelper.logError("PlayerActivity", "addSlave() returned false")
@@ -1275,6 +1263,43 @@ class PlayerActivity : BaseActivity() {
         }
         
         dialog.show()
+    }
+    
+    /**
+     * Retry selecting a subtitle track until it's detected or max retries reached
+     * This handles the case where LibVLC needs time to register the new subtitle track
+     */
+    private fun retrySubtitleTrackSelection(
+        previousTrackCount: Int,
+        retryAttempt: Int = 0
+    ) {
+        if (retryAttempt >= SUBTITLE_TRACK_MAX_RETRIES) {
+            Log.w(TAG, "Max subtitle track selection retries reached ($SUBTITLE_TRACK_MAX_RETRIES)")
+            SubtitleDebugHelper.logWarning("PlayerActivity", "Max retries reached - subtitle track not detected")
+            return
+        }
+        
+        // Refresh tracks to get the new subtitle
+        refreshTracks()
+        
+        // Try to auto-select the newly added subtitle
+        val spuTracks = mediaPlayer?.spuTracks
+        if (spuTracks != null && spuTracks.size > previousTrackCount) {
+            // Success! Select the last track (newly added one)
+            val newTrack = spuTracks.last()
+            mediaPlayer?.spuTrack = newTrack.id
+            Log.d(TAG, "Auto-selected new subtitle track on attempt ${retryAttempt + 1}: ${newTrack.name}")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "Auto-selected subtitle track (attempt ${retryAttempt + 1}): ${newTrack.name}")
+            App.toast(R.string.subtitle_loaded, false)
+        } else {
+            // Not detected yet, retry after delay
+            Log.d(TAG, "Subtitle track not detected yet (attempt ${retryAttempt + 1}/$SUBTITLE_TRACK_MAX_RETRIES), retrying...")
+            SubtitleDebugHelper.logDebug("PlayerActivity", "Track not detected, retry ${retryAttempt + 1}/$SUBTITLE_TRACK_MAX_RETRIES")
+            
+            handler.postDelayed({
+                retrySubtitleTrackSelection(previousTrackCount, retryAttempt + 1)
+            }, SUBTITLE_TRACK_RETRY_DELAY_MS)
+        }
     }
     
     /**
