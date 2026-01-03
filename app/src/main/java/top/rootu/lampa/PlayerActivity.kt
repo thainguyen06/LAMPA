@@ -87,6 +87,12 @@ class PlayerActivity : BaseActivity() {
     // Store subtitle URL passed via intent for later loading
     private var pendingSubtitleUrl: String? = null
     
+    // Retry state for network stream errors
+    private var videoUrl: String? = null
+    private var retryCount = 0
+    private var maxRetries = 3
+    private var retryDelayMs = 2000L // Start with 2 seconds
+    
     private val handler = Handler(Looper.getMainLooper())
     private var isControlsVisible = true
     private val hideControlsRunnable = Runnable {
@@ -110,6 +116,8 @@ class PlayerActivity : BaseActivity() {
         private const val TRACK_LOADING_DELAY_MS = 2000L // 2 seconds - Wait for tracks to load
         private const val SUBTITLE_TRACK_REGISTRATION_DELAY_MS = 500L // 0.5 seconds - Wait for subtitle track to register after addSlave
         private const val SYSTEM_TIME_UPDATE_INTERVAL = 60000L // 1 minute
+        private const val MAX_RETRY_ATTEMPTS = 3 // Maximum number of retry attempts for network errors
+        private const val INITIAL_RETRY_DELAY_MS = 2000L // Initial retry delay (2 seconds)
         
         // LibVLC 3.6.0 Media event type constants
         // Note: Media class uses integer constants, not a nested Event class like MediaPlayer
@@ -166,6 +174,9 @@ class PlayerActivity : BaseActivity() {
             finish()
             return
         }
+        
+        // Store video URL for retry attempts
+        this.videoUrl = videoUrl
 
         Log.d(TAG, "Starting playback for: $videoUrl")
         if (!videoTitleText.isNullOrEmpty()) {
@@ -292,6 +303,17 @@ class PlayerActivity : BaseActivity() {
                 add("--aout=opensles")
                 add("--audio-time-stretch") // Better audio sync
                 add("-vvv") // Verbose logging for debugging
+                
+                // Network stream optimization
+                // Increase network caching to handle unstable connections better
+                add("--network-caching=3000") // 3 seconds cache for network streams
+                add("--live-caching=3000") // 3 seconds cache for live streams
+                
+                // Connection timeout settings to detect issues faster
+                add("--http-reconnect") // Enable automatic HTTP reconnection
+                
+                // Reduce buffering to improve responsiveness
+                add("--file-caching=300") // 300ms for local files
             }
             
             libVLC = LibVLC(this, options)
@@ -340,11 +362,9 @@ class PlayerActivity : BaseActivity() {
                             }
                         }
                         MediaPlayer.Event.EncounteredError -> {
-                            Log.e(TAG, "Playback error")
+                            Log.e(TAG, "Playback error encountered")
                             runOnUiThread {
-                                loadingSpinner?.visibility = View.GONE
-                                App.toast(R.string.playback_error, true)
-                                finish()
+                                handlePlaybackError()
                             }
                         }
                         MediaPlayer.Event.LengthChanged -> {
@@ -383,7 +403,14 @@ class PlayerActivity : BaseActivity() {
             val media = Media(libVLC, Uri.parse(videoUrl)).apply {
                 // Add hardware decoding options (will fallback to software if needed)
                 addOption(":codec=all")
-                addOption(":network-caching=1000")
+                
+                // Network caching - match LibVLC global settings
+                // This ensures consistent behavior across the media pipeline
+                addOption(":network-caching=3000")
+                
+                // HTTP specific options for better stream handling
+                addOption(":http-reconnect") // Enable HTTP reconnection on errors
+                addOption(":http-continuous") // Enable continuous HTTP streaming
                 
                 // Note: External subtitles are now loaded after playback starts using addSlave()
                 // This ensures proper subtitle transfer to the player
@@ -966,9 +993,18 @@ class PlayerActivity : BaseActivity() {
                             // Store track count BEFORE adding to detect new track after registration delay
                             val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
                             
-                            // Convert file path to proper URI format for LibVLC using Uri.fromFile()
-                            // This ensures correct format: file:///data/user/0/...
+                            // Convert file path to proper URI format for LibVLC
+                            // LibVLC expects file:///absolute/path format
+                            // Using Uri.fromFile() ensures correct file:/// prefix without double-slash issues
                             val subtitleUri = Uri.fromFile(subtitleFile).toString()
+                            
+                            // Validate URI format before passing to LibVLC
+                            if (!subtitleUri.startsWith("file://")) {
+                                Log.e(TAG, "Invalid subtitle URI format: $subtitleUri")
+                                SubtitleDebugHelper.logError("PlayerActivity", "Invalid URI format generated: $subtitleUri")
+                                App.toast(R.string.subtitle_load_failed, true)
+                                return@runOnUiThread
+                            }
                             
                             Log.d(TAG, "Adding subtitle URI: $subtitleUri")
                             SubtitleDebugHelper.logInfo("PlayerActivity", "Exact URI being passed to addSlave: $subtitleUri")
@@ -1039,16 +1075,19 @@ class PlayerActivity : BaseActivity() {
                 // Store track count BEFORE adding to detect new track after registration delay
                 val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
                 
-                // Convert URL to proper URI format
+                // Convert URL to proper URI format for LibVLC
                 val subtitleUri = when {
-                    subtitleUrl.startsWith("file://") || 
                     subtitleUrl.startsWith("http://") || 
                     subtitleUrl.startsWith("https://") -> {
-                        // Already a proper URI
+                        // Network URL - use as-is
+                        subtitleUrl
+                    }
+                    subtitleUrl.startsWith("file://") -> {
+                        // Already a file URI - validate format
                         subtitleUrl
                     }
                     subtitleUrl.startsWith("/") -> {
-                        // Local file path - verify it exists and convert to URI
+                        // Local file path - verify it exists and convert to proper URI
                         val subtitleFile = File(subtitleUrl)
                         if (!subtitleFile.exists()) {
                             Log.e(TAG, "Subtitle file does not exist: $subtitleUrl")
@@ -1063,9 +1102,19 @@ class PlayerActivity : BaseActivity() {
                         Uri.fromFile(subtitleFile).toString()
                     }
                     else -> {
-                        // Assume it's a URL without scheme
+                        // Unknown format - attempt to use as-is but log warning
+                        Log.w(TAG, "Unknown subtitle URL format: $subtitleUrl")
+                        SubtitleDebugHelper.logWarning("PlayerActivity", "Unknown URL format, attempting to use as-is: $subtitleUrl")
                         subtitleUrl
                     }
+                }
+                
+                // Validate URI format for local files
+                if (subtitleUrl.startsWith("/") && !subtitleUri.startsWith("file://")) {
+                    Log.e(TAG, "Failed to generate valid file URI from path: $subtitleUrl")
+                    SubtitleDebugHelper.logError("PlayerActivity", "Invalid URI format generated: $subtitleUri")
+                    App.toast(R.string.subtitle_load_failed, true)
+                    return@postDelayed
                 }
                 
                 Log.d(TAG, "Adding subtitle URI: $subtitleUri")
@@ -1216,6 +1265,69 @@ class PlayerActivity : BaseActivity() {
         }
         
         dialog.show()
+    }
+    
+    /**
+     * Handle playback errors with retry logic for network stream issues
+     * 
+     * VLC can encounter various network errors:
+     * - Cancellation (0x8): Often caused by network timeouts or connection issues
+     * - Connection errors: Network unavailability or server issues
+     * 
+     * This method implements exponential backoff retry for recoverable errors.
+     */
+    private fun handlePlaybackError() {
+        loadingSpinner?.visibility = View.GONE
+        
+        val currentVideoUrl = this.videoUrl
+        
+        // Check if this is a network stream and we haven't exceeded retry limit
+        if (currentVideoUrl != null && 
+            (currentVideoUrl.startsWith("http://") || currentVideoUrl.startsWith("https://")) &&
+            retryCount < maxRetries) {
+            
+            retryCount++
+            Log.w(TAG, "Network stream error detected. Retry attempt $retryCount of $maxRetries")
+            
+            // Show retry message to user
+            App.toast("Connection error. Retrying ($retryCount/$maxRetries)...", false)
+            
+            // Calculate exponential backoff delay
+            val currentRetryDelay = retryDelayMs * (1 shl (retryCount - 1)) // 2^(n-1) * base delay
+            
+            Log.d(TAG, "Retrying playback in ${currentRetryDelay}ms")
+            
+            // Release current player before retry
+            releasePlayer()
+            
+            // Schedule retry with exponential backoff
+            handler.postDelayed({
+                try {
+                    Log.d(TAG, "Attempting to restart playback (attempt $retryCount)")
+                    initializePlayer(currentVideoUrl, null)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error during retry attempt", e)
+                    showFinalError()
+                }
+            }, currentRetryDelay)
+            
+        } else {
+            // Non-network stream or max retries exceeded
+            if (retryCount >= maxRetries) {
+                Log.e(TAG, "Max retry attempts ($maxRetries) exceeded")
+            }
+            showFinalError()
+        }
+    }
+    
+    /**
+     * Show final error message and close the activity
+     */
+    private fun showFinalError() {
+        App.toast(R.string.playback_error, true)
+        handler.postDelayed({
+            finish()
+        }, 1000) // Give user time to see the error message
     }
 
     override fun onResume() {
