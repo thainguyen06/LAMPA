@@ -90,8 +90,8 @@ class PlayerActivity : BaseActivity() {
     // Retry state for network stream errors
     private var videoUrl: String? = null
     private var retryCount = 0
-    private var maxRetries = 3
-    private var retryDelayMs = 2000L // Start with 2 seconds
+    private val maxRetries = MAX_RETRY_ATTEMPTS
+    private val retryDelayMs = INITIAL_RETRY_DELAY_MS
     
     private val handler = Handler(Looper.getMainLooper())
     private var isControlsVisible = true
@@ -118,6 +118,7 @@ class PlayerActivity : BaseActivity() {
         private const val SYSTEM_TIME_UPDATE_INTERVAL = 60000L // 1 minute
         private const val MAX_RETRY_ATTEMPTS = 3 // Maximum number of retry attempts for network errors
         private const val INITIAL_RETRY_DELAY_MS = 2000L // Initial retry delay (2 seconds)
+        private const val ERROR_MESSAGE_DISPLAY_TIME_MS = 1000L // Time to display error before closing (1 second)
         
         // LibVLC 3.6.0 Media event type constants
         // Note: Media class uses integer constants, not a nested Event class like MediaPlayer
@@ -1292,8 +1293,9 @@ class PlayerActivity : BaseActivity() {
             // Show retry message to user
             App.toast("Connection error. Retrying ($retryCount/$maxRetries)...", false)
             
-            // Calculate exponential backoff delay
-            val currentRetryDelay = retryDelayMs * (1 shl (retryCount - 1)) // 2^(n-1) * base delay
+            // Calculate exponential backoff delay: 2s, 4s, 8s
+            // Formula: baseDelay * 2^(retryCount-1)
+            val currentRetryDelay = retryDelayMs * (1 shl (retryCount - 1))
             
             Log.d(TAG, "Retrying playback in ${currentRetryDelay}ms")
             
@@ -1327,7 +1329,7 @@ class PlayerActivity : BaseActivity() {
         App.toast(R.string.playback_error, true)
         handler.postDelayed({
             finish()
-        }, 1000) // Give user time to see the error message
+        }, ERROR_MESSAGE_DISPLAY_TIME_MS)
     }
 
     override fun onResume() {
