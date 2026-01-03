@@ -730,7 +730,6 @@ class PlayerActivity : BaseActivity() {
             subtitleGroup.addView(radioButton)
         }
     }
-        }
 
     private fun selectAudioTrack(trackIndex: Int) {
         mediaPlayer?.let { player ->
@@ -1145,3 +1144,4 @@ class PlayerActivity : BaseActivity() {
         
         Log.d(TAG, "Player released")
     }
+}
