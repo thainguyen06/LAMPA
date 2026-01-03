@@ -155,15 +155,24 @@ class SubtitleDownloader(private val context: Context) {
             val cacheDir = File(context.cacheDir, SUBTITLE_CACHE_DIR)
             if (!cacheDir.exists()) {
                 if (!cacheDir.mkdirs()) {
-                    Log.e(TAG, "Failed to create cache directory")
+                    Log.e(TAG, "Failed to create cache directory: ${cacheDir.absolutePath}")
                     return@withContext null
                 }
+                Log.d(TAG, "Created cache directory: ${cacheDir.absolutePath}")
             }
             
             // Generate a unique filename
             val timestamp = System.currentTimeMillis()
             val extension = getExtensionFromUrl(subtitleUrl) ?: "srt"
             val subtitleFile = File(cacheDir, "subtitle_${language}_${timestamp}.$extension")
+            
+            // Ensure parent directory exists before creating FileOutputStream
+            subtitleFile.parentFile?.let { parent ->
+                if (!parent.exists() && !parent.mkdirs()) {
+                    Log.e(TAG, "Failed to create parent directory for subtitle file: ${parent.absolutePath}")
+                    return@withContext null
+                }
+            }
             
             // Write the subtitle content to file
             FileOutputStream(subtitleFile).use { output ->

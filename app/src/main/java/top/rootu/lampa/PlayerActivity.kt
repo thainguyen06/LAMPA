@@ -307,13 +307,16 @@ class PlayerActivity : BaseActivity() {
                 
                 // Network stream optimization
                 // Increase network caching to handle unstable connections better
-                add("--network-caching=3000") // 3 seconds cache for network streams
-                add("--live-caching=3000") // 3 seconds cache for live streams
+                // Value in milliseconds: higher values = more buffering but better stability
+                // Recommended: 3000-10000ms depending on connection quality
+                // For slow connections, consider increasing to 5000-10000ms
+                add("--network-caching=5000") // 5 seconds cache for network streams (increased from 3s)
+                add("--live-caching=5000") // 5 seconds cache for live streams (increased from 3s)
                 
                 // Connection timeout settings to detect issues faster
                 add("--http-reconnect") // Enable automatic HTTP reconnection
                 
-                // Reduce buffering to improve responsiveness
+                // Reduce buffering to improve responsiveness for local files
                 add("--file-caching=300") // 300ms for local files
             }
             
@@ -407,7 +410,7 @@ class PlayerActivity : BaseActivity() {
                 
                 // Network caching - match LibVLC global settings
                 // This ensures consistent behavior across the media pipeline
-                addOption(":network-caching=3000")
+                addOption(":network-caching=5000") // Increased to 5 seconds to match LibVLC settings
                 
                 // HTTP specific options for better stream handling
                 addOption(":http-reconnect") // Enable HTTP reconnection on errors
@@ -995,9 +998,14 @@ class PlayerActivity : BaseActivity() {
                             val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
                             
                             // Convert file path to proper URI format for LibVLC
-                            // LibVLC expects file:///absolute/path format
-                            // Using Uri.fromFile() ensures correct file:/// prefix without double-slash issues
+                            // LibVLC on Android accepts both file:/// URIs and absolute paths
+                            // However, using Uri.fromFile() ensures correct formatting
                             val subtitleUri = Uri.fromFile(subtitleFile).toString()
+                            
+                            Log.d(TAG, "Subtitle file path: ${subtitleFile.absolutePath}")
+                            Log.d(TAG, "Subtitle URI generated: $subtitleUri")
+                            SubtitleDebugHelper.logInfo("PlayerActivity", "File path: ${subtitleFile.absolutePath}")
+                            SubtitleDebugHelper.logInfo("PlayerActivity", "Generated URI: $subtitleUri")
                             
                             // Validate URI format before passing to LibVLC
                             if (!subtitleUri.startsWith("file://")) {
@@ -1007,12 +1015,9 @@ class PlayerActivity : BaseActivity() {
                                 return@runOnUiThread
                             }
                             
-                            Log.d(TAG, "Adding subtitle URI: $subtitleUri")
-                            SubtitleDebugHelper.logInfo("PlayerActivity", "Exact URI being passed to addSlave: $subtitleUri")
-                            
                             // Use addSlave to add subtitle to already playing media
                             // Type 0 = Subtitle, 1 = Audio
-                            // Priority 0 = auto, higher values = higher priority
+                            // Note: LibVLC accepts file:/// URIs for local files
                             val added = mediaPlayer?.addSlave(0, subtitleUri, true)
                             
                             if (added == true) {
@@ -1100,7 +1105,10 @@ class PlayerActivity : BaseActivity() {
                         SubtitleDebugHelper.logDebug("PlayerActivity", "File exists, size: ${subtitleFile.length()} bytes")
                         
                         // Use Uri.fromFile() to create proper file:/// URI
-                        Uri.fromFile(subtitleFile).toString()
+                        val uri = Uri.fromFile(subtitleFile).toString()
+                        Log.d(TAG, "Generated file URI: $uri")
+                        SubtitleDebugHelper.logInfo("PlayerActivity", "File URI generated: $uri")
+                        uri
                     }
                     else -> {
                         // Unknown format - attempt to use as-is but log warning
@@ -1118,11 +1126,12 @@ class PlayerActivity : BaseActivity() {
                     return@postDelayed
                 }
                 
-                Log.d(TAG, "Adding subtitle URI: $subtitleUri")
+                Log.d(TAG, "Final subtitle URI to be added: $subtitleUri")
                 SubtitleDebugHelper.logInfo("PlayerActivity", "Exact URI being passed to addSlave: $subtitleUri")
                 
                 // Use addSlave to add subtitle to already playing media
                 // Type 0 = Subtitle, 1 = Audio
+                // Note: LibVLC accepts file:/// URIs for local files
                 val added = mediaPlayer?.addSlave(0, subtitleUri, true)
                 
                 if (added == true) {
