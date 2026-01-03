@@ -31,6 +31,7 @@ import top.rootu.lampa.helpers.Prefs.aspectRatio
 import top.rootu.lampa.helpers.SubtitleDebugHelper
 import top.rootu.lampa.helpers.SubtitleDownloader
 import top.rootu.lampa.helpers.SubtitlePreferences
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -359,6 +360,14 @@ class PlayerActivity : BaseActivity() {
                                 } else {
                                     loadingSpinner?.visibility = View.GONE
                                 }
+                            }
+                        }
+                        MediaPlayer.Event.ESAdded -> {
+                            // ES (Elementary Stream) added - new track available
+                            Log.d(TAG, "ESAdded event: New track added to player")
+                            SubtitleDebugHelper.logInfo("PlayerActivity", "ESAdded event: refreshing tracks")
+                            runOnUiThread {
+                                refreshTracks()
                             }
                         }
                         else -> {}
@@ -938,18 +947,27 @@ class PlayerActivity : BaseActivity() {
                     
                     runOnUiThread {
                         try {
+                            // Verify the subtitle file exists
+                            val subtitleFile = File(subtitlePath)
+                            if (!subtitleFile.exists()) {
+                                Log.e(TAG, "Subtitle file does not exist: $subtitlePath")
+                                SubtitleDebugHelper.logError("PlayerActivity", "Subtitle file not found: $subtitlePath")
+                                App.toast(R.string.subtitle_load_failed, true)
+                                return@runOnUiThread
+                            }
+                            
+                            Log.d(TAG, "Subtitle file exists: ${subtitleFile.absolutePath}")
+                            SubtitleDebugHelper.logDebug("PlayerActivity", "File exists, size: ${subtitleFile.length()} bytes")
+                            
                             // Store track count BEFORE adding to detect new track after registration delay
                             val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
                             
-                            // Convert file path to proper URI format for LibVLC
-                            val subtitleUri = if (!subtitlePath.startsWith("file://")) {
-                                "file://$subtitlePath"
-                            } else {
-                                subtitlePath
-                            }
+                            // Convert file path to proper URI format for LibVLC using Uri.fromFile()
+                            // This ensures correct format: file:///data/user/0/...
+                            val subtitleUri = Uri.fromFile(subtitleFile).toString()
                             
                             Log.d(TAG, "Adding subtitle URI: $subtitleUri")
-                            SubtitleDebugHelper.logDebug("PlayerActivity", "Adding subtitle to player: $subtitleUri")
+                            SubtitleDebugHelper.logInfo("PlayerActivity", "Exact URI being passed to addSlave: $subtitleUri")
                             
                             // Use addSlave to add subtitle to already playing media
                             // Type 0 = Subtitle, 1 = Audio
@@ -1017,20 +1035,37 @@ class PlayerActivity : BaseActivity() {
                 // Store track count BEFORE adding to detect new track after registration delay
                 val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
                 
-                // Convert URL to proper URI format if needed
-                val subtitleUri = if (subtitleUrl.startsWith("file://") || 
-                                     subtitleUrl.startsWith("http://") || 
-                                     subtitleUrl.startsWith("https://")) {
-                    subtitleUrl
-                } else if (subtitleUrl.startsWith("/")) {
-                    // Local file path
-                    "file://$subtitleUrl"
-                } else {
-                    // Assume it's a URL
-                    subtitleUrl
+                // Convert URL to proper URI format
+                val subtitleUri = when {
+                    subtitleUrl.startsWith("file://") || 
+                    subtitleUrl.startsWith("http://") || 
+                    subtitleUrl.startsWith("https://") -> {
+                        // Already a proper URI
+                        subtitleUrl
+                    }
+                    subtitleUrl.startsWith("/") -> {
+                        // Local file path - verify it exists and convert to URI
+                        val subtitleFile = File(subtitleUrl)
+                        if (!subtitleFile.exists()) {
+                            Log.e(TAG, "Subtitle file does not exist: $subtitleUrl")
+                            SubtitleDebugHelper.logError("PlayerActivity", "Subtitle file not found: $subtitleUrl")
+                            App.toast(R.string.subtitle_load_failed, true)
+                            return@postDelayed
+                        }
+                        Log.d(TAG, "Local subtitle file exists: ${subtitleFile.absolutePath}")
+                        SubtitleDebugHelper.logDebug("PlayerActivity", "File exists, size: ${subtitleFile.length()} bytes")
+                        
+                        // Use Uri.fromFile() to create proper file:/// URI
+                        Uri.fromFile(subtitleFile).toString()
+                    }
+                    else -> {
+                        // Assume it's a URL without scheme
+                        subtitleUrl
+                    }
                 }
                 
                 Log.d(TAG, "Adding subtitle URI: $subtitleUri")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "Exact URI being passed to addSlave: $subtitleUri")
                 
                 // Use addSlave to add subtitle to already playing media
                 // Type 0 = Subtitle, 1 = Audio
@@ -1038,6 +1073,7 @@ class PlayerActivity : BaseActivity() {
                 
                 if (added == true) {
                     Log.d(TAG, "Subtitle slave added successfully")
+                    SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle slave added successfully")
                     
                     // Wait a moment for the track to be registered
                     handler.postDelayed({
@@ -1051,18 +1087,22 @@ class PlayerActivity : BaseActivity() {
                             val newTrack = spuTracks.last()
                             mediaPlayer?.spuTrack = newTrack.id
                             Log.d(TAG, "Auto-selected new subtitle track: ${newTrack.name}")
+                            SubtitleDebugHelper.logInfo("PlayerActivity", "Auto-selected subtitle track: ${newTrack.name}")
                         } else {
                             Log.w(TAG, "New subtitle track not detected in track list")
+                            SubtitleDebugHelper.logWarning("PlayerActivity", "New subtitle track not detected after registration delay")
                         }
                     }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
                     
                     App.toast(R.string.subtitle_loaded, false)
                 } else {
                     Log.e(TAG, "Failed to add subtitle slave")
+                    SubtitleDebugHelper.logError("PlayerActivity", "addSlave() returned false")
                     App.toast(R.string.subtitle_load_failed, true)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error adding subtitle from URL", e)
+                SubtitleDebugHelper.logError("PlayerActivity", "Exception while adding subtitle: ${e.message}", e)
                 App.toast(R.string.subtitle_load_failed, true)
             }
         }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
