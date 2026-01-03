@@ -731,7 +731,6 @@ class PlayerActivity : BaseActivity() {
         }
     }
         }
-    }
 
     private fun selectAudioTrack(trackIndex: Int) {
         mediaPlayer?.let { player ->
@@ -1146,4 +1145,3 @@ class PlayerActivity : BaseActivity() {
         
         Log.d(TAG, "Player released")
     }
-}
