@@ -20,7 +20,6 @@ import top.rootu.lampa.tmdb.models.entity.Entities
 import top.rootu.lampa.tmdb.models.entity.Entity
 import top.rootu.lampa.tmdb.models.entity.Genre
 import java.io.IOException
-import java.net.Inet6Address
 import java.net.InetAddress
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -115,8 +114,7 @@ object TMDB {
                 .url(it)
                 .bootstrapDnsHosts(
                     InetAddress.getByName("9.9.9.9"),
-                    InetAddress.getByName("149.112.112.112"),
-                    Inet6Address.getByName("2620:fe::fe")
+                    InetAddress.getByName("149.112.112.112")
                 )
                 .build()
         }
