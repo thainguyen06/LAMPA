@@ -5,7 +5,7 @@
 The Android app "top.rootu.lampa" using LibVLC was experiencing severe playback issues:
 
 1. **Extreme Latency/Desync (~14 seconds)**
-   - Log: `libvlc audio output: buffer too late (-14409040 us): dropped`
+   - Log: `libvlc audio output: buffer too late (-14409040 μs): dropped`
    - Log: `libvlc video output: picture is too late to be displayed`
    - Massive delay causing constant frame drops
 

@@ -316,7 +316,7 @@ class PlayerActivity : BaseActivity() {
                 // Clock synchronization options to handle audio/video desync
                 // These settings help when audio/video streams are severely out of sync
                 add("--clock-jitter=5000") // Allow up to 5 second jitter before correction
-                add("--clock-synchro=0") // 0 = default sync, helps with streams that have timing issues
+                add("--clock-synchro=0") // 0 = default (auto sync based on timestamps), helps with streams that have timing issues
                 
                 // Audio synchronization
                 add("--audio-desync=0") // No additional audio delay - let VLC handle sync automatically
@@ -1276,6 +1276,10 @@ class PlayerActivity : BaseActivity() {
         if (retryAttempt >= SUBTITLE_TRACK_MAX_RETRIES) {
             Log.w(TAG, "Max subtitle track selection retries reached ($SUBTITLE_TRACK_MAX_RETRIES)")
             SubtitleDebugHelper.logWarning("PlayerActivity", "Max retries reached - subtitle track not detected")
+            // Notify user that subtitle loading failed after multiple attempts
+            runOnUiThread {
+                App.toast(R.string.subtitle_load_failed, true)
+            }
             return
         }
         
