@@ -364,6 +364,10 @@ class PlayerActivity : BaseActivity() {
                         }
                         MediaPlayer.Event.ESAdded -> {
                             // ES (Elementary Stream) added - new track available
+                            // Note: This event fires for ANY track type (audio, video, subtitle)
+                            // We refresh the track list but don't auto-select here to avoid
+                            // changing tracks unexpectedly. Track selection is handled by the
+                            // delay-based logic after addSlave() which checks track count changes.
                             Log.d(TAG, "ESAdded event: New track added to player")
                             SubtitleDebugHelper.logInfo("PlayerActivity", "ESAdded event: refreshing tracks")
                             runOnUiThread {
