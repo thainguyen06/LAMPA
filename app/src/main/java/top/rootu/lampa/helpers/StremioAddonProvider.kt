@@ -273,6 +273,11 @@ class StremioAddonProvider(
             if (!cacheDir.exists()) {
                 val created = cacheDir.mkdirs()
                 SubtitleDebugHelper.logDebug(getName(), "Cache directory created: $created")
+                if (!created) {
+                    Log.e(TAG, "Failed to create cache directory: ${cacheDir.absolutePath}")
+                    SubtitleDebugHelper.logError(getName(), "Failed to create cache directory: ${cacheDir.absolutePath}")
+                    return@withContext null
+                }
             }
             
             // Determine file extension from content type or URL
@@ -292,6 +297,15 @@ class StremioAddonProvider(
             // Save subtitle file
             val timestamp = System.currentTimeMillis()
             val subtitleFile = File(cacheDir, "subtitle_${result.language}_${timestamp}.$extension")
+            
+            // Ensure parent directory exists before creating FileOutputStream
+            subtitleFile.parentFile?.let { parent ->
+                if (!parent.exists() && !parent.mkdirs()) {
+                    Log.e(TAG, "Failed to create parent directory for subtitle file: ${parent.absolutePath}")
+                    SubtitleDebugHelper.logError(getName(), "Failed to create parent directory: ${parent.absolutePath}")
+                    return@withContext null
+                }
+            }
             
             var bytesWritten = 0L
             FileOutputStream(subtitleFile).use { output ->
