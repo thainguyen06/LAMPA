@@ -28,10 +28,17 @@ class AutoCompleteTV @JvmOverloads constructor(
 ) : AppCompatAutoCompleteTextView(context, attributeSet, defStyleAttr) {
 
     companion object {
-        // need to access private field ('mPopup') of AutoCompleteTextView
-        @SuppressLint("PrivateApi")
-        private val popupWindowField = AutoCompleteTextView::class.java.getDeclaredField("mPopup")
-            .also { it.isAccessible = true }
+        // Access private field ('mPopup') of AutoCompleteTextView using reflection
+        // Wrapped in try-catch to handle potential SecurityException from hidden API restrictions
+        @SuppressLint("PrivateApi", "DiscouragedPrivateApi")
+        private val popupWindowField = try {
+            AutoCompleteTextView::class.java.getDeclaredField("mPopup")
+                .also { it.isAccessible = true }
+        } catch (e: Exception) {
+            // On newer Android versions with strict hidden API enforcement,
+            // this may fail. In that case, we'll gracefully handle the null case.
+            null
+        }
     }
 
     init {
@@ -45,7 +52,13 @@ class AutoCompleteTV @JvmOverloads constructor(
 
     var onPopupVisibilityChanged: ((Boolean) -> Unit)? = null
 
-    private val popupWindow = popupWindowField.get(this) as? ListPopupWindow?
+    // Safely get popup window, handling case where reflection fails
+    private val popupWindow = try {
+        popupWindowField?.get(this) as? ListPopupWindow?
+    } catch (e: Exception) {
+        // If reflection fails due to hidden API restrictions, popup window will be null
+        null
+    }
     private val fadingEdgeH = dp2px(this.context, 64.0F)
 
     private fun hideKeyboard() {
