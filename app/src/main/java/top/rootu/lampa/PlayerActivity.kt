@@ -408,9 +408,9 @@ class PlayerActivity : BaseActivity() {
                             SubtitleDebugHelper.logInfo("PlayerActivity", "ESAdded event detected")
                             
                             // Log current track counts for debugging
-                            val audioCount = player.audioTracks?.size ?: 0
-                            val videoCount = player.videoTracksCount
-                            val subtitleCount = player.spuTracks?.size ?: 0
+                            val audioCount = mediaPlayer?.audioTracks?.size ?: 0
+                            val videoCount = mediaPlayer?.videoTracksCount ?: 0
+                            val subtitleCount = mediaPlayer?.spuTracks?.size ?: 0
                             SubtitleDebugHelper.logDebug("PlayerActivity", "Current tracks - Audio: $audioCount, Video: $videoCount, Subtitle: $subtitleCount")
                             
                             runOnUiThread {
