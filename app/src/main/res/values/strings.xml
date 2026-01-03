@@ -180,6 +180,13 @@
     <string name="subtitle_settings_gear">Subtitle Settings</string>
     <string name="subtitle_loaded">External subtitle loaded</string>
     <string name="subtitle_load_failed">Failed to load subtitle</string>
+    <!-- Subtitle Debug -->
+    <string name="subtitle_debug_title">Subtitle Debug</string>
+    <string name="subtitle_debug_description">Export subtitle loading logs or trigger diagnostic crash for debugging</string>
+    <string name="subtitle_debug_export">Export Logs to File</string>
+    <string name="subtitle_debug_crash">Trigger Diagnostic Crash</string>
+    <string name="subtitle_debug_clear">Clear Logs</string>
+    <string name="close">Close</string>
     <!-- App Settings -->
     <string name="app_settings_title">App Settings</string>
     <string name="settings_player_section">Player Preferences</string>

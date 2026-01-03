@@ -70,15 +70,19 @@ class SubtitleDownloader(private val context: Context) {
     ): String? = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Searching subtitles for: $videoFilename (IMDB: $imdbId, Lang: $language)")
+            SubtitleDebugHelper.logInfo("SubtitleDownloader", "=== Starting subtitle search ===")
+            SubtitleDebugHelper.logInfo("SubtitleDownloader", "Video: '$videoFilename', IMDB: '$imdbId', Language: '$language'")
             
             // Iterate through all enabled providers
             for (provider in providers) {
                 if (!provider.isEnabled()) {
                     Log.d(TAG, "Provider ${provider.getName()} is disabled, skipping")
+                    SubtitleDebugHelper.logDebug("SubtitleDownloader", "Provider ${provider.getName()} is disabled, skipping")
                     continue
                 }
                 
                 Log.d(TAG, "Trying provider: ${provider.getName()}")
+                SubtitleDebugHelper.logInfo("SubtitleDownloader", "Attempting provider: ${provider.getName()}")
                 
                 try {
                     // Search for subtitles using this provider
@@ -86,28 +90,36 @@ class SubtitleDownloader(private val context: Context) {
                     
                     if (results.isNotEmpty()) {
                         Log.d(TAG, "Found ${results.size} results from ${provider.getName()}")
+                        SubtitleDebugHelper.logInfo("SubtitleDownloader", "Provider ${provider.getName()} found ${results.size} results")
                         
                         // Try to download the first (best) result
                         val subtitlePath = provider.download(results.first())
                         
                         if (subtitlePath != null) {
                             Log.d(TAG, "Successfully downloaded subtitle from ${provider.getName()}")
+                            SubtitleDebugHelper.logInfo("SubtitleDownloader", "=== SUCCESS: Downloaded from ${provider.getName()} ===")
                             return@withContext subtitlePath
+                        } else {
+                            SubtitleDebugHelper.logWarning("SubtitleDownloader", "Download failed from ${provider.getName()}")
                         }
                     } else {
                         Log.d(TAG, "No results from ${provider.getName()}")
+                        SubtitleDebugHelper.logDebug("SubtitleDownloader", "Provider ${provider.getName()} returned no results")
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error with provider ${provider.getName()}", e)
+                    SubtitleDebugHelper.logError("SubtitleDownloader", "Provider ${provider.getName()} threw exception: ${e.message}", e)
                     // Continue to next provider
                 }
             }
             
             Log.d(TAG, "No subtitles found from any provider")
+            SubtitleDebugHelper.logWarning("SubtitleDownloader", "=== FAILED: No subtitles found from any provider ===")
             return@withContext null
             
         } catch (e: Exception) {
             Log.e(TAG, "Error searching/downloading subtitles", e)
+            SubtitleDebugHelper.logError("SubtitleDownloader", "Fatal error in searchAndDownload: ${e.message}", e)
             return@withContext null
         }
     }

@@ -28,6 +28,7 @@ import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
 import org.videolan.libvlc.util.VLCVideoLayout
 import top.rootu.lampa.helpers.Prefs.aspectRatio
+import top.rootu.lampa.helpers.SubtitleDebugHelper
 import top.rootu.lampa.helpers.SubtitleDownloader
 import top.rootu.lampa.helpers.SubtitlePreferences
 import java.text.SimpleDateFormat
@@ -248,6 +249,12 @@ class PlayerActivity : BaseActivity() {
 
         btnSubtitleSettings?.setOnClickListener {
             showSubtitleSettingsDialog()
+        }
+        
+        // Long press on subtitle settings button to export subtitle debug logs
+        btnSubtitleSettings?.setOnLongClickListener {
+            showSubtitleDebugMenu()
+            true
         }
 
         // Seek bar listener
@@ -890,27 +897,33 @@ class PlayerActivity : BaseActivity() {
 
     private fun searchAndLoadExternalSubtitles(videoUrl: String) {
         Log.d(TAG, "searchAndLoadExternalSubtitles called for: $videoUrl")
+        SubtitleDebugHelper.logInfo("PlayerActivity", "searchAndLoadExternalSubtitles called for: $videoUrl")
         
         // Check if credentials are configured
         if (!SubtitlePreferences.hasCredentials(this)) {
             Log.w(TAG, "No subtitle source credentials configured, skipping external subtitle search")
+            SubtitleDebugHelper.logWarning("PlayerActivity", "No subtitle source credentials configured")
             return
         }
         
         Log.d(TAG, "Subtitle credentials found, proceeding with search")
+        SubtitleDebugHelper.logInfo("PlayerActivity", "Credentials found, proceeding with search")
         
         // Get preferred subtitle language
         val preferredLang = SubtitlePreferences.getPreferredSubtitleLanguage(this)
         Log.d(TAG, "Preferred subtitle language: $preferredLang")
+        SubtitleDebugHelper.logDebug("PlayerActivity", "Preferred subtitle language: $preferredLang")
         
         // Extract video filename from URL
         val videoFilename = videoUrl.substringAfterLast('/').substringBefore('?')
         Log.d(TAG, "Extracted video filename: $videoFilename")
+        SubtitleDebugHelper.logDebug("PlayerActivity", "Video filename: $videoFilename")
         
         // Launch async task to search and download subtitles
         coroutineScope.launch {
             try {
                 Log.d(TAG, "Starting external subtitle search...")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "Launching coroutine for subtitle search")
                 
                 // Search and download subtitles
                 val subtitlePath = subtitleDownloader?.searchAndDownload(
@@ -921,6 +934,7 @@ class PlayerActivity : BaseActivity() {
                 
                 if (subtitlePath != null) {
                     Log.d(TAG, "External subtitle downloaded: $subtitlePath")
+                    SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle downloaded successfully: $subtitlePath")
                     
                     runOnUiThread {
                         try {
@@ -935,6 +949,7 @@ class PlayerActivity : BaseActivity() {
                             }
                             
                             Log.d(TAG, "Adding subtitle URI: $subtitleUri")
+                            SubtitleDebugHelper.logDebug("PlayerActivity", "Adding subtitle to player: $subtitleUri")
                             
                             // Use addSlave to add subtitle to already playing media
                             // Type 0 = Subtitle, 1 = Audio
@@ -943,6 +958,7 @@ class PlayerActivity : BaseActivity() {
                             
                             if (added == true) {
                                 Log.d(TAG, "Subtitle slave added successfully")
+                                SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle slave added successfully to LibVLC")
                                 
                                 // Wait a moment for the track to be registered
                                 // LibVLC needs time to parse and register the new subtitle track
@@ -958,27 +974,33 @@ class PlayerActivity : BaseActivity() {
                                         val newTrack = spuTracks.last()
                                         mediaPlayer?.spuTrack = newTrack.id
                                         Log.d(TAG, "Auto-selected new subtitle track: ${newTrack.name}")
+                                        SubtitleDebugHelper.logInfo("PlayerActivity", "Auto-selected subtitle track: ${newTrack.name}")
                                     } else {
                                         Log.w(TAG, "New subtitle track not detected in track list")
+                                        SubtitleDebugHelper.logWarning("PlayerActivity", "New subtitle track not detected after registration delay")
                                     }
                                 }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
                                 
                                 App.toast(R.string.subtitle_loaded, false)
                             } else {
                                 Log.e(TAG, "Failed to add subtitle slave")
+                                SubtitleDebugHelper.logError("PlayerActivity", "addSlave() returned false")
                                 App.toast(R.string.subtitle_load_failed, true)
                             }
                         } catch (e: Exception) {
                             Log.e(TAG, "Error adding subtitle to player", e)
+                            SubtitleDebugHelper.logError("PlayerActivity", "Exception while adding subtitle to player: ${e.message}", e)
                             App.toast(R.string.subtitle_load_failed, true)
                         }
                     }
                 } else {
                     Log.d(TAG, "No external subtitle found")
+                    SubtitleDebugHelper.logWarning("PlayerActivity", "No subtitle found - searchAndDownload returned null")
                     // No need to show toast or wrap in runOnUiThread for logging
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading external subtitles", e)
+                SubtitleDebugHelper.logError("PlayerActivity", "Exception in subtitle search coroutine: ${e.message}", e)
             }
         }
     }
@@ -1106,6 +1128,50 @@ class PlayerActivity : BaseActivity() {
         } catch (e: Exception) {
             Log.e(TAG, "Error refreshing tracks", e)
         }
+    }
+    
+    /**
+     * Show subtitle debug menu with options to export logs or trigger diagnostic crash
+     */
+    private fun showSubtitleDebugMenu() {
+        val dialog = Dialog(this, R.style.TransparentDialog)
+        dialog.setContentView(R.layout.dialog_subtitle_debug)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        
+        val exportLogsButton = dialog.findViewById<Button>(R.id.btn_export_logs)
+        val triggerCrashButton = dialog.findViewById<Button>(R.id.btn_trigger_crash)
+        val clearLogsButton = dialog.findViewById<Button>(R.id.btn_clear_logs)
+        val closeButton = dialog.findViewById<Button>(R.id.btn_close_debug)
+        
+        exportLogsButton.setOnClickListener {
+            val logPath = SubtitleDebugHelper.exportLogsToFile(this)
+            if (logPath != null) {
+                App.toast("Subtitle logs exported to: $logPath", true)
+            } else {
+                App.toast("Failed to export logs", true)
+            }
+            dialog.dismiss()
+        }
+        
+        triggerCrashButton.setOnClickListener {
+            dialog.dismiss()
+            // Trigger diagnostic crash with subtitle logs
+            handler.postDelayed({
+                SubtitleDebugHelper.triggerDiagnosticCrash()
+            }, 500)
+        }
+        
+        clearLogsButton.setOnClickListener {
+            SubtitleDebugHelper.clearLogs()
+            App.toast("Subtitle debug logs cleared", false)
+            dialog.dismiss()
+        }
+        
+        closeButton.setOnClickListener {
+            dialog.dismiss()
+        }
+        
+        dialog.show()
     }
 
     override fun onResume() {
