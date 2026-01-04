@@ -1,6 +1,7 @@
 package top.rootu.lampa.helpers
 
 import android.content.Context
+import android.os.Environment
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
@@ -117,7 +118,11 @@ object SubtitleDebugHelper {
     }
     
     /**
-     * Export logs to a file
+     * Export logs to a file in the Download directory
+     * 
+     * Note: Uses Environment.getExternalStorageDirectory() which is deprecated in API 29+
+     * but required to access the specific path /storage/emulated/0/Download/ as requested.
+     * Falls back to app-specific directory on failure.
      */
     fun exportLogsToFile(context: Context): String? {
         try {
@@ -126,15 +131,46 @@ object SubtitleDebugHelper {
             val timestamp = LocalDateTime.now().format(formatter)
             val filename = "subtitle_debug_${timestamp}.log"
             
-            // Save to cache directory first
-            val cacheDir = context.cacheDir
-            val logFile = File(cacheDir, filename)
-            
-            FileOutputStream(logFile).use { output ->
-                output.write(logContent.toByteArray())
+            // Save to Download directory as requested (/storage/emulated/0/Download/)
+            // Note: This may not work on Android 11+ (API 30+) due to scoped storage
+            val downloadDir = File(Environment.getExternalStorageDirectory(), Environment.DIRECTORY_DOWNLOADS)
+            if (!downloadDir.exists()) {
+                downloadDir.mkdirs()
             }
             
-            Log.i(TAG, "Subtitle debug log exported to: ${logFile.absolutePath}")
+            val logFile = File(downloadDir, filename)
+            
+            try {
+                FileOutputStream(logFile).use { output ->
+                    output.write(logContent.toByteArray())
+                }
+                
+                Log.i(TAG, "Subtitle debug log exported to: ${logFile.absolutePath}")
+            } catch (e: Exception) {
+                // If we can't write to Download folder (Android 11+ scoped storage), fall back to app directory
+                Log.w(TAG, "Could not save to Download directory, trying app-specific directory", e)
+                val appDownloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                val fallbackFile = File(appDownloadDir, filename)
+                
+                FileOutputStream(fallbackFile).use { output ->
+                    output.write(logContent.toByteArray())
+                }
+                
+                Log.i(TAG, "Subtitle debug log exported to app directory: ${fallbackFile.absolutePath}")
+                return fallbackFile.absolutePath
+            }
+            
+            // Also save to cache directory as backup
+            try {
+                val cacheDir = context.cacheDir
+                val cacheLogFile = File(cacheDir, filename)
+                FileOutputStream(cacheLogFile).use { output ->
+                    output.write(logContent.toByteArray())
+                }
+                Log.i(TAG, "Subtitle debug log also cached at: ${cacheLogFile.absolutePath}")
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not save to cache directory", e)
+            }
             
             // Try to also save to Backup directory if available
             try {
