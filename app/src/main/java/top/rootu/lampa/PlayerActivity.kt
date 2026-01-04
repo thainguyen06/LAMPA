@@ -111,6 +111,10 @@ class PlayerActivity : BaseActivity() {
     // Store subtitle URL passed via intent for later loading
     private var pendingSubtitleUrl: String? = null
     
+    // Debounce state for searchAndLoadExternalSubtitles
+    private var lastSubtitleSearchTimestamp: Long = 0
+    private val subtitleSearchDebounceMs = 2000L // 2 seconds debounce window
+    
     // Retry state for network stream errors
     private var videoUrl: String? = null
     private var retryCount = 0
@@ -436,14 +440,15 @@ class PlayerActivity : BaseActivity() {
                         MediaPlayer.Event.ESAdded -> {
                             // ES (Elementary Stream) added - new track available
                             // Note: This event fires for ANY track type (audio, video, subtitle)
-                            // Log track information for debugging
+                            // Check if this is a subtitle track by inspecting track counts
+                            val subtitleCount = mediaPlayer?.spuTracks?.size ?: 0
+                            
                             Log.d(TAG, "ESAdded event: New track added to player")
                             SubtitleDebugHelper.logInfo("PlayerActivity", "ESAdded event detected")
                             
                             // Log current track counts for debugging
                             val audioCount = mediaPlayer?.audioTracks?.size ?: 0
                             val videoCount = mediaPlayer?.videoTracksCount ?: 0
-                            val subtitleCount = mediaPlayer?.spuTracks?.size ?: 0
                             SubtitleDebugHelper.logDebug("PlayerActivity", "Current tracks - Audio: $audioCount, Video: $videoCount, Subtitle: $subtitleCount")
                             
                             runOnUiThread {
@@ -992,6 +997,17 @@ class PlayerActivity : BaseActivity() {
     }
 
     private fun searchAndLoadExternalSubtitles(videoUrl: String) {
+        val currentTime = System.currentTimeMillis()
+        
+        // Debounce: ignore calls within 2 seconds of the last one
+        if (currentTime - lastSubtitleSearchTimestamp < subtitleSearchDebounceMs) {
+            Log.d(TAG, "searchAndLoadExternalSubtitles: Debounced - ignoring call (too soon after previous)")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "searchAndLoadExternalSubtitles: Debounced call ignored")
+            return
+        }
+        
+        lastSubtitleSearchTimestamp = currentTime
+        
         Log.d(TAG, "searchAndLoadExternalSubtitles called for: $videoUrl")
         SubtitleDebugHelper.logInfo("PlayerActivity", "searchAndLoadExternalSubtitles called for: $videoUrl")
         
@@ -1033,67 +1049,9 @@ class PlayerActivity : BaseActivity() {
                     SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle downloaded successfully: $subtitlePath")
                     
                     runOnUiThread {
-                        try {
-                            // Verify the subtitle file exists
-                            val subtitleFile = File(subtitlePath)
-                            if (!subtitleFile.exists()) {
-                                Log.e(TAG, "Subtitle file does not exist: $subtitlePath")
-                                SubtitleDebugHelper.logError("PlayerActivity", "Subtitle file not found: $subtitlePath")
-                                App.toast(R.string.subtitle_load_failed, true)
-                                return@runOnUiThread
-                            }
-                            
-                            Log.d(TAG, "Subtitle file exists: ${subtitleFile.absolutePath}")
-                            SubtitleDebugHelper.logDebug("PlayerActivity", "File exists, size: ${subtitleFile.length()} bytes")
-                            
-                            // Store track count BEFORE adding to detect new track after registration delay
-                            val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
-                            
-                            // Convert file path to proper URI format for LibVLC
-                            // LibVLC on Android accepts both file:/// URIs and absolute paths
-                            // However, using Uri.fromFile() ensures correct formatting
-                            val subtitleUri = Uri.fromFile(subtitleFile).toString()
-                            
-                            Log.d(TAG, "Subtitle file path: ${subtitleFile.absolutePath}")
-                            Log.d(TAG, "Subtitle URI generated: $subtitleUri")
-                            SubtitleDebugHelper.logInfo("PlayerActivity", "File path: ${subtitleFile.absolutePath}")
-                            SubtitleDebugHelper.logInfo("PlayerActivity", "Generated URI: $subtitleUri")
-                            
-                            // Validate URI format before passing to LibVLC
-                            if (!subtitleUri.startsWith("file://")) {
-                                Log.e(TAG, "Invalid subtitle URI format: $subtitleUri")
-                                SubtitleDebugHelper.logError("PlayerActivity", "Invalid URI format generated: $subtitleUri")
-                                App.toast(R.string.subtitle_load_failed, true)
-                                return@runOnUiThread
-                            }
-                            
-                            // Use addSlave to add subtitle to already playing media
-                            // Type 0 = Subtitle, 1 = Audio
-                            // Note: LibVLC accepts file:/// URIs for local files
-                            val added = mediaPlayer?.addSlave(0, subtitleUri, true)
-                            
-                            // Log VLC result for debugging
-                            Log.d(TAG, "VLC Result: ${added ?: false}")
-                            SubtitleDebugHelper.logInfo("PlayerActivity", "VLC addSlave() Result: ${added ?: false}")
-                            
-                            if (added == true) {
-                                Log.d(TAG, "Subtitle slave added successfully")
-                                SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle slave added successfully to LibVLC")
-                                
-                                // Wait a moment for the track to be registered, then retry selection
-                                // LibVLC needs time to parse and register the new subtitle track
-                                handler.postDelayed({
-                                    retrySubtitleTrackSelection(previousTrackCount)
-                                }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
-                                
-                            } else {
-                                Log.e(TAG, "Failed to add subtitle slave")
-                                SubtitleDebugHelper.logError("PlayerActivity", "addSlave() returned false")
-                                App.toast(R.string.subtitle_load_failed, true)
-                            }
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error adding subtitle to player", e)
-                            SubtitleDebugHelper.logError("PlayerActivity", "Exception while adding subtitle to player: ${e.message}", e)
+                        // Use the robust addAndSelectSubtitle function
+                        val success = addAndSelectSubtitle(subtitlePath)
+                        if (!success) {
                             App.toast(R.string.subtitle_load_failed, true)
                         }
                     }
@@ -1117,84 +1075,9 @@ class PlayerActivity : BaseActivity() {
         Log.d(TAG, "Loading subtitle from URL: $subtitleUrl")
         
         handler.postDelayed({
-            try {
-                // Store track count BEFORE adding to detect new track after registration delay
-                val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
-                
-                // Convert URL to proper URI format for LibVLC
-                val subtitleUri = when {
-                    subtitleUrl.startsWith("http://") || 
-                    subtitleUrl.startsWith("https://") -> {
-                        // Network URL - use as-is
-                        subtitleUrl
-                    }
-                    subtitleUrl.startsWith("file://") -> {
-                        // Already a file URI - validate format
-                        subtitleUrl
-                    }
-                    subtitleUrl.startsWith("/") -> {
-                        // Local file path - verify it exists and convert to proper URI
-                        val subtitleFile = File(subtitleUrl)
-                        if (!subtitleFile.exists()) {
-                            Log.e(TAG, "Subtitle file does not exist: $subtitleUrl")
-                            SubtitleDebugHelper.logError("PlayerActivity", "Subtitle file not found: $subtitleUrl")
-                            App.toast(R.string.subtitle_load_failed, true)
-                            return@postDelayed
-                        }
-                        Log.d(TAG, "Local subtitle file exists: ${subtitleFile.absolutePath}")
-                        SubtitleDebugHelper.logDebug("PlayerActivity", "File exists, size: ${subtitleFile.length()} bytes")
-                        
-                        // Use Uri.fromFile() to create proper file:/// URI
-                        val uri = Uri.fromFile(subtitleFile).toString()
-                        Log.d(TAG, "Generated file URI: $uri")
-                        SubtitleDebugHelper.logInfo("PlayerActivity", "File URI generated: $uri")
-                        uri
-                    }
-                    else -> {
-                        // Unknown format - attempt to use as-is but log warning
-                        Log.w(TAG, "Unknown subtitle URL format: $subtitleUrl")
-                        SubtitleDebugHelper.logWarning("PlayerActivity", "Unknown URL format, attempting to use as-is: $subtitleUrl")
-                        subtitleUrl
-                    }
-                }
-                
-                // Validate URI format for local files
-                if (subtitleUrl.startsWith("/") && !subtitleUri.startsWith("file://")) {
-                    Log.e(TAG, "Failed to generate valid file URI from path: $subtitleUrl")
-                    SubtitleDebugHelper.logError("PlayerActivity", "Invalid URI format generated: $subtitleUri")
-                    App.toast(R.string.subtitle_load_failed, true)
-                    return@postDelayed
-                }
-                
-                Log.d(TAG, "Final subtitle URI to be added: $subtitleUri")
-                SubtitleDebugHelper.logInfo("PlayerActivity", "Exact URI being passed to addSlave: $subtitleUri")
-                
-                // Use addSlave to add subtitle to already playing media
-                // Type 0 = Subtitle, 1 = Audio
-                // Note: LibVLC accepts file:/// URIs for local files
-                val added = mediaPlayer?.addSlave(0, subtitleUri, true)
-                
-                // Log VLC result for debugging
-                Log.d(TAG, "VLC Result: ${added ?: false}")
-                SubtitleDebugHelper.logInfo("PlayerActivity", "VLC addSlave() Result: ${added ?: false}")
-                
-                if (added == true) {
-                    Log.d(TAG, "Subtitle slave added successfully")
-                    SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle slave added successfully")
-                    
-                    // Wait a moment for the track to be registered, then retry selection
-                    handler.postDelayed({
-                        retrySubtitleTrackSelection(previousTrackCount)
-                    }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
-                    
-                } else {
-                    Log.e(TAG, "Failed to add subtitle slave")
-                    SubtitleDebugHelper.logError("PlayerActivity", "addSlave() returned false")
-                    App.toast(R.string.subtitle_load_failed, true)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error adding subtitle from URL", e)
-                SubtitleDebugHelper.logError("PlayerActivity", "Exception while adding subtitle: ${e.message}", e)
+            // Use the robust addAndSelectSubtitle function
+            val success = addAndSelectSubtitle(subtitleUrl)
+            if (!success) {
                 App.toast(R.string.subtitle_load_failed, true)
             }
         }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
@@ -1344,6 +1227,102 @@ class PlayerActivity : BaseActivity() {
             handler.postDelayed({
                 retrySubtitleTrackSelection(previousTrackCount, retryAttempt + 1)
             }, SUBTITLE_TRACK_RETRY_DELAY_MS)
+        }
+    }
+    
+    /**
+     * Robustly add and select a subtitle track
+     * 
+     * This function:
+     * 1. Calls addSlave to add the subtitle
+     * 2. Waits for the ESAdded event (via polling for track count increase)
+     * 3. Explicitly sets the new track as current using setSpuTrack
+     * 
+     * @param subtitlePath The file path or URI to the subtitle file
+     * @return True if successful, false otherwise
+     */
+    private fun addAndSelectSubtitle(subtitlePath: String): Boolean {
+        try {
+            // Verify the subtitle file exists (if it's a local file)
+            if (subtitlePath.startsWith("/")) {
+                val subtitleFile = File(subtitlePath)
+                if (!subtitleFile.exists()) {
+                    Log.e(TAG, "Subtitle file does not exist: $subtitlePath")
+                    SubtitleDebugHelper.logError("PlayerActivity", "Subtitle file not found: $subtitlePath")
+                    return false
+                }
+                
+                Log.d(TAG, "Subtitle file exists: ${subtitleFile.absolutePath}, size: ${subtitleFile.length()} bytes")
+                SubtitleDebugHelper.logDebug("PlayerActivity", "File exists, size: ${subtitleFile.length()} bytes")
+            }
+            
+            // Store track count BEFORE adding to detect new track after registration delay
+            val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
+            
+            // Convert file path to proper URI format for LibVLC
+            val subtitleUri = when {
+                subtitlePath.startsWith("http://") || subtitlePath.startsWith("https://") -> {
+                    // Network URL - use as-is
+                    subtitlePath
+                }
+                subtitlePath.startsWith("file://") -> {
+                    // Already a file URI - validate format
+                    subtitlePath
+                }
+                subtitlePath.startsWith("/") -> {
+                    // Local file path - convert to proper URI
+                    val subtitleFile = File(subtitlePath)
+                    Uri.fromFile(subtitleFile).toString()
+                }
+                else -> {
+                    // Unknown format
+                    Log.w(TAG, "Unknown subtitle path format: $subtitlePath")
+                    SubtitleDebugHelper.logWarning("PlayerActivity", "Unknown path format: $subtitlePath")
+                    subtitlePath
+                }
+            }
+            
+            Log.d(TAG, "Subtitle file path: $subtitlePath")
+            Log.d(TAG, "Subtitle URI generated: $subtitleUri")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "File path: $subtitlePath")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "Generated URI: $subtitleUri")
+            
+            // Validate URI format before passing to LibVLC
+            if (subtitlePath.startsWith("/") && !subtitleUri.startsWith("file://")) {
+                Log.e(TAG, "Invalid subtitle URI format: $subtitleUri")
+                SubtitleDebugHelper.logError("PlayerActivity", "Invalid URI format generated: $subtitleUri")
+                return false
+            }
+            
+            // Use addSlave to add subtitle to already playing media
+            // Type 0 = Subtitle, 1 = Audio
+            // select = true means VLC should try to auto-select this track
+            val added = mediaPlayer?.addSlave(0, subtitleUri, true)
+            
+            // Log VLC result for debugging
+            Log.d(TAG, "VLC addSlave() Result: ${added ?: false}")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "VLC addSlave() Result: ${added ?: false}")
+            
+            if (added == true) {
+                Log.d(TAG, "Subtitle slave added successfully")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle slave added successfully to LibVLC")
+                
+                // Wait a moment for the track to be registered, then retry selection
+                // LibVLC needs time to parse and register the new subtitle track
+                handler.postDelayed({
+                    retrySubtitleTrackSelection(previousTrackCount)
+                }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
+                
+                return true
+            } else {
+                Log.e(TAG, "Failed to add subtitle slave")
+                SubtitleDebugHelper.logError("PlayerActivity", "addSlave() returned false")
+                return false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error adding subtitle to player", e)
+            SubtitleDebugHelper.logError("PlayerActivity", "Exception while adding subtitle to player: ${e.message}", e)
+            return false
         }
     }
     

@@ -1,6 +1,7 @@
 package top.rootu.lampa.helpers
 
 import android.content.Context
+import android.os.Environment
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
@@ -117,7 +118,7 @@ object SubtitleDebugHelper {
     }
     
     /**
-     * Export logs to a file
+     * Export logs to a file in the Download directory
      */
     fun exportLogsToFile(context: Context): String? {
         try {
@@ -126,15 +127,31 @@ object SubtitleDebugHelper {
             val timestamp = LocalDateTime.now().format(formatter)
             val filename = "subtitle_debug_${timestamp}.log"
             
-            // Save to cache directory first
-            val cacheDir = context.cacheDir
-            val logFile = File(cacheDir, filename)
+            // Save to Download directory as requested
+            val downloadDir = File(Environment.getExternalStorageDirectory(), Environment.DIRECTORY_DOWNLOADS)
+            if (!downloadDir.exists()) {
+                downloadDir.mkdirs()
+            }
+            
+            val logFile = File(downloadDir, filename)
             
             FileOutputStream(logFile).use { output ->
                 output.write(logContent.toByteArray())
             }
             
             Log.i(TAG, "Subtitle debug log exported to: ${logFile.absolutePath}")
+            
+            // Also save to cache directory as backup
+            try {
+                val cacheDir = context.cacheDir
+                val cacheLogFile = File(cacheDir, filename)
+                FileOutputStream(cacheLogFile).use { output ->
+                    output.write(logContent.toByteArray())
+                }
+                Log.i(TAG, "Subtitle debug log also cached at: ${cacheLogFile.absolutePath}")
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not save to cache directory", e)
+            }
             
             // Try to also save to Backup directory if available
             try {
