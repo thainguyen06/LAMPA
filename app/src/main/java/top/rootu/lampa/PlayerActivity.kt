@@ -1203,6 +1203,18 @@ class PlayerActivity : BaseActivity() {
             Log.w(TAG, "Max subtitle track selection retries reached ($SUBTITLE_TRACK_MAX_RETRIES)")
             SubtitleDebugHelper.logWarning("PlayerActivity", "Max retries reached - subtitle track not detected")
             
+            // Check if VLC has internally selected a subtitle track even if we can't detect it in spuTracks
+            val currentSpuTrack = mediaPlayer?.spuTrack ?: -1
+            if (currentSpuTrack != -1) {
+                // VLC has a subtitle track selected! The subtitle is working even though we can't see it in spuTracks
+                Log.i(TAG, "Subtitle track is active (track ID: $currentSpuTrack) - confirmed via spuTrack property")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle active (track ID: $currentSpuTrack) - track list detection failed but subtitle is working")
+                runOnUiThread {
+                    App.toast(R.string.subtitle_loaded, false)
+                }
+                return
+            }
+            
             // Important: Since addSlave() succeeded with select=true, VLC has likely loaded
             // the subtitle internally even though it's not appearing in spuTracks.
             // This is a known LibVLC behavior where external subtitles may not populate
