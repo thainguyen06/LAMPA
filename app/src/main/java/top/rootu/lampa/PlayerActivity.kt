@@ -1223,8 +1223,8 @@ class PlayerActivity : BaseActivity() {
                 return
             }
             
-            // Important: Since addSlave() succeeded with select=true, VLC has likely loaded
-            // the subtitle internally even though it's not appearing in spuTracks.
+            // Important: We called addSlave() with select=true (see line 1331), so VLC should
+            // have loaded and selected the subtitle internally even though it's not appearing in spuTracks.
             // This is a known LibVLC behavior where external subtitles may not populate
             // the track list immediately or at all through the Java API.
             // We trust VLC's internal handling and don't show an error to the user.
