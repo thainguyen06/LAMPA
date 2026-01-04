@@ -146,6 +146,7 @@ class PlayerActivity : BaseActivity() {
         private const val SUBTITLE_TRACK_REGISTRATION_DELAY_MS = 2500L // 2.5 seconds - Wait for subtitle track to register after addSlave (increased to handle larger files and slower devices)
         private const val SUBTITLE_TRACK_RETRY_DELAY_MS = 2000L // 2 seconds - Delay between subtitle track selection retries (increased for better reliability)
         private const val SUBTITLE_TRACK_MAX_RETRIES = 5 // Maximum retries for subtitle track selection (increased to allow more time for VLC processing)
+        private const val NO_TRACK_SELECTED = -1 // VLC track ID indicating no track is selected
         private const val SYSTEM_TIME_UPDATE_INTERVAL = 60000L // 1 minute
         private const val MAX_RETRY_ATTEMPTS = 3 // Maximum number of retry attempts for network errors
         private const val INITIAL_RETRY_DELAY_MS = 2000L // Initial retry delay (2 seconds)
@@ -805,7 +806,7 @@ class PlayerActivity : BaseActivity() {
         val spuTracks = player.spuTracks ?: emptyArray()
         val currentTrack = player.spuTrack
         
-        if (currentTrack == -1) {
+        if (currentTrack == NO_TRACK_SELECTED) {
             disabledButton.isChecked = true
         }
         
@@ -854,7 +855,7 @@ class PlayerActivity : BaseActivity() {
         mediaPlayer?.let { player ->
             if (trackIndex == 0) {
                 // Disable subtitles
-                player.spuTrack = -1
+                player.spuTrack = NO_TRACK_SELECTED
                 Log.d(TAG, "Subtitles disabled")
             } else {
                 val spuTracks = player.spuTracks
@@ -1204,8 +1205,8 @@ class PlayerActivity : BaseActivity() {
             SubtitleDebugHelper.logWarning("PlayerActivity", "Max retries reached - subtitle track not detected")
             
             // Check if VLC has internally selected a subtitle track even if we can't detect it in spuTracks
-            val currentSpuTrack = mediaPlayer?.spuTrack ?: -1
-            if (currentSpuTrack != -1) {
+            val currentSpuTrack = mediaPlayer?.spuTrack ?: NO_TRACK_SELECTED
+            if (currentSpuTrack != NO_TRACK_SELECTED) {
                 // VLC has a subtitle track selected! The subtitle is working even though we can't see it in spuTracks
                 Log.i(TAG, "Subtitle track is active (track ID: $currentSpuTrack) - confirmed via spuTrack property")
                 SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle active (track ID: $currentSpuTrack) - track list detection failed but subtitle is working")
