@@ -19,6 +19,8 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.TextView
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -59,6 +61,28 @@ class PlayerActivity : BaseActivity() {
     private var libVLC: LibVLC? = null
     private var mediaPlayer: MediaPlayer? = null
     private var videoLayout: VLCVideoLayout? = null
+    
+    // Lifecycle observer to ensure proper cleanup
+    private val lifecycleObserver = object : DefaultLifecycleObserver {
+        override fun onPause(owner: LifecycleOwner) {
+            super.onPause(owner)
+            Log.d(TAG, "Lifecycle: onPause - pausing media player")
+            mediaPlayer?.pause()
+        }
+        
+        override fun onStop(owner: LifecycleOwner) {
+            super.onStop(owner)
+            Log.d(TAG, "Lifecycle: onStop - detaching views")
+            // Detach views when activity is stopped to prevent memory leaks
+            mediaPlayer?.detachViews()
+        }
+        
+        override fun onDestroy(owner: LifecycleOwner) {
+            super.onDestroy(owner)
+            Log.d(TAG, "Lifecycle: onDestroy - releasing player")
+            releasePlayer()
+        }
+    }
     
     // UI components
     private var btnBack: ImageButton? = null
@@ -156,6 +180,9 @@ class PlayerActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_player)
+        
+        // Register lifecycle observer for proper cleanup
+        lifecycle.addObserver(lifecycleObserver)
 
         // Force landscape orientation
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
@@ -1387,37 +1414,61 @@ class PlayerActivity : BaseActivity() {
     override fun onResume() {
         super.onResume()
         setupFullscreen()
+        // Only play if player is initialized
         mediaPlayer?.play()
     }
 
     override fun onPause() {
         super.onPause()
+        // Handled by lifecycle observer, but kept for backward compatibility
         mediaPlayer?.pause()
     }
 
     override fun onStop() {
         super.onStop()
+        // Remove all callbacks to prevent memory leaks
         handler.removeCallbacksAndMessages(null)
+        // Handled by lifecycle observer, but kept for backward compatibility
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        // Unregister lifecycle observer
+        lifecycle.removeObserver(lifecycleObserver)
+        // Handled by lifecycle observer, but ensure cleanup
         releasePlayer()
     }
 
     private fun releasePlayer() {
+        // Remove all pending callbacks to prevent leaks
         handler.removeCallbacksAndMessages(null)
         
         mediaPlayer?.let { player ->
-            player.stop()
-            player.detachViews()
-            player.release()
+            try {
+                // Stop playback if still playing
+                if (player.isPlaying) {
+                    player.stop()
+                }
+                // Detach views to prevent memory leaks
+                player.detachViews()
+                // Release the player resources
+                player.release()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error releasing media player", e)
+            }
         }
         mediaPlayer = null
         
-        libVLC?.release()
+        libVLC?.let {
+            try {
+                // Release LibVLC instance
+                it.release()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error releasing LibVLC", e)
+            }
+        }
         libVLC = null
         
-        Log.d(TAG, "Player released")
+        Log.d(TAG, "Player released successfully")
     }
 }
