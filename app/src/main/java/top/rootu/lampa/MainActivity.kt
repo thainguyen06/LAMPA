@@ -328,7 +328,7 @@ class MainActivity : BaseActivity(),
                 // Stop any pending operations
                 pauseTimers()
                 // Destroy only if not already destroyed
-                if (!isDestroyed) {
+                if (isDestroyed == false) {
                     destroy()
                 }
             }
@@ -360,7 +360,7 @@ class MainActivity : BaseActivity(),
         super.onLowMemory()
         logDebug("onLowMemory() - Clearing caches")
         // Clear browser cache to free up memory
-        if (browserInitComplete && !browser.isDestroyed) {
+        if (browserInitComplete && browser?.isDestroyed == false) {
             browser?.clearCache(true)
         }
         // Request garbage collection
@@ -381,7 +381,7 @@ class MainActivity : BaseActivity(),
             ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW,
             ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> {
                 // Release any caches or unnecessary resources
-                if (browserInitComplete && !browser.isDestroyed) {
+                if (browserInitComplete && browser?.isDestroyed == false) {
                     browser?.clearCache(true)
                 }
             }
@@ -390,7 +390,7 @@ class MainActivity : BaseActivity(),
             ComponentCallbacks2.TRIM_MEMORY_MODERATE,
             ComponentCallbacks2.TRIM_MEMORY_COMPLETE -> {
                 // Release more resources, app is likely to be killed
-                if (browserInitComplete && !browser.isDestroyed) {
+                if (browserInitComplete && browser?.isDestroyed == false) {
                     browser?.apply {
                         pauseTimers()
                         clearCache(true)
