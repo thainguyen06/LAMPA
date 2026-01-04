@@ -1195,9 +1195,14 @@ class PlayerActivity : BaseActivity() {
     /**
      * Retry selecting a subtitle track until it's detected or max retries reached
      * This handles the case where LibVLC needs time to register the new subtitle track
+     * 
+     * @param previousTrackCount Number of subtitle tracks before addSlave() was called
+     * @param previousTrackId The subtitle track ID that was active before addSlave() was called
+     * @param retryAttempt Current retry attempt number (0-indexed)
      */
     private fun retrySubtitleTrackSelection(
         previousTrackCount: Int,
+        previousTrackId: Int = NO_TRACK_SELECTED,
         retryAttempt: Int = 0
     ) {
         if (retryAttempt >= SUBTITLE_TRACK_MAX_RETRIES) {
@@ -1206,9 +1211,10 @@ class PlayerActivity : BaseActivity() {
             
             // Check if VLC has internally selected a subtitle track even if we can't detect it in spuTracks
             val currentSpuTrack = mediaPlayer?.spuTrack ?: NO_TRACK_SELECTED
-            if (currentSpuTrack != NO_TRACK_SELECTED) {
-                // VLC has a subtitle track selected! The subtitle is working even though we can't see it in spuTracks
-                Log.i(TAG, "Subtitle track is active (track ID: $currentSpuTrack) - confirmed via spuTrack property")
+            if (currentSpuTrack != NO_TRACK_SELECTED && currentSpuTrack != previousTrackId) {
+                // VLC has a subtitle track selected AND it's different from before!
+                // The subtitle is working even though we can't see it in spuTracks
+                Log.i(TAG, "Subtitle track is active (track ID: $currentSpuTrack, previous: $previousTrackId) - confirmed via spuTrack property")
                 SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle active (track ID: $currentSpuTrack) - track list detection failed but subtitle is working")
                 runOnUiThread {
                     App.toast(R.string.subtitle_loaded, false)
@@ -1249,7 +1255,7 @@ class PlayerActivity : BaseActivity() {
             SubtitleDebugHelper.logDebug("PlayerActivity", "Track not detected, retry ${retryAttempt + 1}/$SUBTITLE_TRACK_MAX_RETRIES")
             
             handler.postDelayed({
-                retrySubtitleTrackSelection(previousTrackCount, retryAttempt + 1)
+                retrySubtitleTrackSelection(previousTrackCount, previousTrackId, retryAttempt + 1)
             }, SUBTITLE_TRACK_RETRY_DELAY_MS)
         }
     }
@@ -1267,8 +1273,9 @@ class PlayerActivity : BaseActivity() {
      */
     private fun addAndSelectSubtitle(subtitlePath: String): Boolean {
         try {
-            // Store track count BEFORE adding to detect new track after registration delay
+            // Store track count and current track ID BEFORE adding to detect new track after registration delay
             val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
+            val previousTrackId = mediaPlayer?.spuTrack ?: NO_TRACK_SELECTED
             
             // Convert file path to proper URI format for LibVLC
             // Note: We use Uri.fromFile() here because LibVLC's native code requires file:// URIs
@@ -1333,7 +1340,7 @@ class PlayerActivity : BaseActivity() {
                 // Wait a moment for the track to be registered, then retry selection
                 // LibVLC needs time to parse and register the new subtitle track
                 handler.postDelayed({
-                    retrySubtitleTrackSelection(previousTrackCount)
+                    retrySubtitleTrackSelection(previousTrackCount, previousTrackId)
                 }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
                 
                 return true
