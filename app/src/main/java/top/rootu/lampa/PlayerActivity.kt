@@ -1210,10 +1210,11 @@ class PlayerActivity : BaseActivity() {
             SubtitleDebugHelper.logWarning("PlayerActivity", "Max retries reached - subtitle track not detected")
             
             // Check if VLC has internally selected a subtitle track even if we can't detect it in spuTracks
+            // We verify both that a track is selected AND that it's different from before to confirm
+            // it's the newly added subtitle (not a pre-existing one)
             val currentSpuTrack = mediaPlayer?.spuTrack ?: NO_TRACK_SELECTED
             if (currentSpuTrack != NO_TRACK_SELECTED && currentSpuTrack != previousTrackId) {
-                // VLC has a subtitle track selected AND it's different from before!
-                // The subtitle is working even though we can't see it in spuTracks
+                // Success! VLC has selected a new subtitle track
                 Log.i(TAG, "Subtitle track is active (track ID: $currentSpuTrack, previous: $previousTrackId) - confirmed via spuTrack property")
                 SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle active (track ID: $currentSpuTrack) - track list detection failed but subtitle is working")
                 runOnUiThread {
