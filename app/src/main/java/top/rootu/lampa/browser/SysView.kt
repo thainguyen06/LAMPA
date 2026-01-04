@@ -55,6 +55,14 @@ class SysView(override val mainActivity: MainActivity, override val viewResId: I
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
                 setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
             }
+            
+            // Workaround for Android 14+ setRequestedFrameRate performance issue
+            // WebView internally calls setRequestedFrameRate which can cause UI loop and CPU drain
+            // This is a known Android system issue that we can't directly fix, but we can
+            // reduce its impact by setting layer type to hardware acceleration
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34 (Android 14)
+                setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            }
         }
         setFocus()
 

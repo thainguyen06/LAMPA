@@ -97,7 +97,9 @@ class SubtitleDownloader(private val context: Context) {
                         
                         if (subtitlePath != null) {
                             Log.d(TAG, "Successfully downloaded subtitle from ${provider.getName()}")
+                            Log.d(TAG, "Subtitle Downloaded: $subtitlePath")
                             SubtitleDebugHelper.logInfo("SubtitleDownloader", "=== SUCCESS: Downloaded from ${provider.getName()} ===")
+                            SubtitleDebugHelper.logInfo("SubtitleDownloader", "Subtitle Downloaded: $subtitlePath")
                             return@withContext subtitlePath
                         } else {
                             SubtitleDebugHelper.logWarning("SubtitleDownloader", "Download failed from ${provider.getName()}")
@@ -182,6 +184,8 @@ class SubtitleDownloader(private val context: Context) {
             }
             
             Log.d(TAG, "Subtitle downloaded successfully: ${subtitleFile.absolutePath}")
+            Log.d(TAG, "Subtitle Downloaded: ${subtitleFile.absolutePath}")
+            SubtitleDebugHelper.logInfo("SubtitleDownloader", "Subtitle Downloaded: ${subtitleFile.absolutePath}")
             return@withContext subtitleFile.absolutePath
             
         } catch (e: Exception) {

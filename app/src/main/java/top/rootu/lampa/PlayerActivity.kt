@@ -327,6 +327,12 @@ class PlayerActivity : BaseActivity() {
                 add("--avcodec-skip-frame=0") // 0 = none, decode all frames including non-IDR
                 add("--avcodec-skip-idct=0") // 0 = none, don't skip IDCT for better quality
                 
+                // Additional options to handle streams with non-IDR frames (Telesync/TS files)
+                // These help when the stream starts with non-IDR frames and VLC can't find initial keyframe
+                add("--avcodec-hurry-up") // Allow decoder to skip non-reference frames for faster seeking to keyframes
+                add("--avcodec-fast") // Enable fast decoding (less quality checks, faster keyframe detection)
+                add("--no-avcodec-dr") // Disable direct rendering to avoid artifacts with corrupted frames
+                
                 // Connection timeout settings to detect issues faster
                 add("--http-reconnect") // Enable automatic HTTP reconnection
                 
@@ -1039,6 +1045,10 @@ class PlayerActivity : BaseActivity() {
                             // Note: LibVLC accepts file:/// URIs for local files
                             val added = mediaPlayer?.addSlave(0, subtitleUri, true)
                             
+                            // Log VLC result for debugging
+                            Log.d(TAG, "VLC Result: ${added ?: false}")
+                            SubtitleDebugHelper.logInfo("PlayerActivity", "VLC addSlave() Result: ${added ?: false}")
+                            
                             if (added == true) {
                                 Log.d(TAG, "Subtitle slave added successfully")
                                 SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle slave added successfully to LibVLC")
@@ -1136,6 +1146,10 @@ class PlayerActivity : BaseActivity() {
                 // Type 0 = Subtitle, 1 = Audio
                 // Note: LibVLC accepts file:/// URIs for local files
                 val added = mediaPlayer?.addSlave(0, subtitleUri, true)
+                
+                // Log VLC result for debugging
+                Log.d(TAG, "VLC Result: ${added ?: false}")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "VLC addSlave() Result: ${added ?: false}")
                 
                 if (added == true) {
                     Log.d(TAG, "Subtitle slave added successfully")
