@@ -1209,7 +1209,7 @@ class PlayerActivity : BaseActivity() {
             Log.w(TAG, "Max subtitle track selection retries reached ($SUBTITLE_TRACK_MAX_RETRIES)")
             SubtitleDebugHelper.logWarning("PlayerActivity", "Max retries reached - subtitle track not detected")
             
-            // Aggressive fallback: Force one final refresh and try to enable any subtitle track
+            // Aggressive fallback: Force one final track refresh before attempting manual selection
             refreshTracks()
             
             // Check if VLC has internally selected a subtitle track even if we can't detect it in spuTracks
@@ -1228,9 +1228,11 @@ class PlayerActivity : BaseActivity() {
             
             // Last resort: Try to manually enable the first available subtitle track
             // This handles cases where VLC has loaded the subtitle but didn't auto-select it
+            // Note: We enable the first track since we can't reliably determine which is the new one,
+            // but given that we just added a subtitle via addSlave(), it's likely to be the most recent
             val spuTracks = mediaPlayer?.spuTracks
             if (spuTracks != null && spuTracks.isNotEmpty()) {
-                // Found subtitle tracks - try to enable the first one (most likely the newly added one)
+                // Found subtitle tracks - try to enable the first one
                 val firstTrack = spuTracks.first()
                 mediaPlayer?.spuTrack = firstTrack.id
                 Log.i(TAG, "Fallback: Manually enabled first subtitle track: ${firstTrack.name} (ID: ${firstTrack.id})")
@@ -1246,7 +1248,7 @@ class PlayerActivity : BaseActivity() {
             // have loaded and selected the subtitle internally even though it's not appearing in spuTracks.
             // This is a known LibVLC behavior where external subtitles may not populate
             // the track list immediately or at all through the Java API.
-            Log.i(TAG, "No subtitle tracks detected, but addSlave() succeeded - subtitle may be active internally")
+            Log.w(TAG, "No subtitle tracks detected, but addSlave() succeeded - subtitle may be active internally")
             SubtitleDebugHelper.logWarning("PlayerActivity", "Track detection failed completely - addSlave() succeeded but track not found. Subtitle may or may not be working.")
             
             // Show a message indicating uncertain status
