@@ -143,9 +143,9 @@ class PlayerActivity : BaseActivity() {
         private const val SEEK_TIME_MS = 10000L // 10 seconds
         private const val CONTROLS_HIDE_DELAY = 3000L // 3 seconds
         private const val TRACK_LOADING_DELAY_MS = 2000L // 2 seconds - Wait for tracks to load
-        private const val SUBTITLE_TRACK_REGISTRATION_DELAY_MS = 2500L // 2.5 seconds - Wait for subtitle track to register after addSlave (increased to handle larger files and slower devices)
-        private const val SUBTITLE_TRACK_RETRY_DELAY_MS = 2000L // 2 seconds - Delay between subtitle track selection retries (increased for better reliability)
-        private const val SUBTITLE_TRACK_MAX_RETRIES = 5 // Maximum retries for subtitle track selection (increased to allow more time for VLC processing)
+        private const val SUBTITLE_TRACK_REGISTRATION_DELAY_MS = 5000L // 5 seconds - Wait for subtitle track to register after addSlave (increased to handle larger files and slower devices)
+        private const val SUBTITLE_TRACK_RETRY_DELAY_MS = 3000L // 3 seconds - Delay between subtitle track selection retries (increased for better reliability)
+        private const val SUBTITLE_TRACK_MAX_RETRIES = 8 // Maximum retries for subtitle track selection (increased to allow more time for VLC processing)
         private const val NO_TRACK_SELECTED = -1 // VLC track ID indicating no track is selected
         private const val SYSTEM_TIME_UPDATE_INTERVAL = 60000L // 1 minute
         private const val MAX_RETRY_ATTEMPTS = 3 // Maximum number of retry attempts for network errors
@@ -1209,6 +1209,10 @@ class PlayerActivity : BaseActivity() {
             Log.w(TAG, "Max subtitle track selection retries reached ($SUBTITLE_TRACK_MAX_RETRIES)")
             SubtitleDebugHelper.logWarning("PlayerActivity", "Max retries reached - subtitle track not detected")
             
+            // Query track information - refreshTracks() accesses spuTracks which may trigger VLC
+            // to return updated data (though this behavior is not guaranteed by LibVLC API)
+            refreshTracks()
+            
             // Check if VLC has internally selected a subtitle track even if we can't detect it in spuTracks
             // We verify both that a track is selected AND that it's different from before to confirm
             // it's the newly added subtitle (not a pre-existing one)
@@ -1223,15 +1227,34 @@ class PlayerActivity : BaseActivity() {
                 return
             }
             
-            // Important: We called addSlave() with select=true (see line 1331), so VLC should
+            // Last resort: Try to manually enable the last available subtitle track
+            // This handles cases where VLC has loaded the subtitle but didn't auto-select it
+            // Note: We use .last() to select what is likely the most recently added track,
+            // consistent with the normal retry logic (line 1268). VLC's track ordering isn't
+            // guaranteed by the API, but in practice new tracks are typically appended.
+            val spuTracks = mediaPlayer?.spuTracks
+            if (spuTracks != null && spuTracks.isNotEmpty()) {
+                // Found subtitle tracks - enable the last one (likely the most recently added)
+                val lastTrack = spuTracks.last()
+                mediaPlayer?.spuTrack = lastTrack.id
+                Log.i(TAG, "Fallback: Manually enabled last subtitle track: ${lastTrack.name} (ID: ${lastTrack.id})")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "Fallback: Manually enabled subtitle track: ${lastTrack.name}")
+                runOnUiThread {
+                    App.toast(R.string.subtitle_loaded, false)
+                }
+                return
+            }
+            
+            // No tracks found at all - VLC may still have the subtitle internally
+            // Important: We called addSlave() with select=true, so VLC should
             // have loaded and selected the subtitle internally even though it's not appearing in spuTracks.
             // This is a known LibVLC behavior where external subtitles may not populate
             // the track list immediately or at all through the Java API.
-            // We trust VLC's internal handling and don't show an error to the user.
-            Log.i(TAG, "Subtitle added via addSlave() - trusting VLC's internal handling")
-            SubtitleDebugHelper.logInfo("PlayerActivity", "Track detection timed out, but addSlave() succeeded - subtitle should be active")
+            val failureMessage = "Track detection failed - addSlave() succeeded but no tracks found. Subtitle may or may not be working."
+            Log.w(TAG, failureMessage)
+            SubtitleDebugHelper.logWarning("PlayerActivity", failureMessage)
             
-            // Show a neutral message that subtitle was loaded (since addSlave succeeded)
+            // Show a message indicating uncertain status
             runOnUiThread {
                 App.toast(R.string.subtitle_loaded, false)
             }
