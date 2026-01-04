@@ -12,6 +12,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.ConsoleMessage
 import android.webkit.JsResult
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -232,6 +233,71 @@ class SysView(override val mainActivity: MainActivity, override val viewResId: I
             ) {
                 debugLog("Ignore SSL error: $error")
                 handler?.proceed() // Ignore SSL certificate errors
+            }
+            
+            /**
+             * Handle WebView render process crashes
+             * Event 23 (ACTIVITY_STOPPED) can be caused by WebView render process crashes
+             * This handler detects and recovers from such crashes
+             */
+            override fun onRenderProcessGone(
+                view: WebView?,
+                detail: RenderProcessGoneDetail?
+            ): Boolean {
+                if (detail == null) {
+                    Log.e(LOG_TAG, "WebView render process gone with null detail")
+                    return false
+                }
+                
+                val didCrash = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    detail.didCrash()
+                } else {
+                    true // Assume crash on older Android versions
+                }
+                
+                val rendererPriority = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    detail.rendererPriorityAtExit()
+                } else {
+                    0
+                }
+                
+                if (didCrash) {
+                    Log.e(LOG_TAG, "WebView render process CRASHED (priority: $rendererPriority)")
+                } else {
+                    Log.w(LOG_TAG, "WebView render process was KILLED by system (priority: $rendererPriority)")
+                }
+                
+                // Handle the crash by cleaning up and showing error message
+                try {
+                    // Remove crashed WebView from parent
+                    // Note: isAttachedToWindowCompat() is used for API compatibility
+                    // It checks if the view is still attached to its window hierarchy
+                    // before attempting removal, preventing IllegalStateException
+                    if (view != null && view.isAttachedToWindowCompat()) {
+                        (view.parent as? ViewGroup)?.removeView(view)
+                    }
+                    
+                    // Clean up the browser reference
+                    browser?.destroy()
+                    browser = null
+                    isDestroyed = true
+                    
+                    // Show error message to user
+                    App.toast(R.string.webview_crash_message, true)
+                    
+                    // Inform MainActivity to handle the crash (e.g., restart or exit)
+                    mainActivity.runOnUiThread {
+                        // Show error dialog and allow user to restart
+                        mainActivity.showUrlInputDialog(
+                            mainActivity.getString(R.string.webview_crash_restart)
+                        )
+                    }
+                    
+                    return true // We handled the crash
+                } catch (e: Exception) {
+                    Log.e(LOG_TAG, "Error handling render process crash", e)
+                    return false // Let system handle it
+                }
             }
         }
 

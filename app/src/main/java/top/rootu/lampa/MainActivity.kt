@@ -2,6 +2,7 @@ package top.rootu.lampa
 
 import android.annotation.SuppressLint
 import android.app.SearchManager
+import android.content.ComponentCallbacks2
 import android.content.ComponentName
 import android.content.Context
 import android.content.DialogInterface
@@ -321,14 +322,18 @@ class MainActivity : BaseActivity(),
     }
 
     override fun onDestroy() {
+        // Clean up browser resources to prevent memory leaks
         if (browserInitComplete) {
             browser?.apply {
+                // Stop any pending operations
+                pauseTimers()
                 // Destroy only if not already destroyed
                 if (!isDestroyed) {
                     destroy()
                 }
             }
         }
+        // Clean up speech recognition
         try {
             Speech.getInstance()?.shutdown()
         } catch (_: Exception) {
@@ -345,6 +350,56 @@ class MainActivity : BaseActivity(),
                 clearCache(true)
             }
         super.onUserLeaveHint()
+    }
+    
+    /**
+     * Handle low memory situations to prevent system from killing the app
+     * This callback is invoked when the system is running low on memory
+     */
+    override fun onLowMemory() {
+        super.onLowMemory()
+        logDebug("onLowMemory() - Clearing caches")
+        // Clear browser cache to free up memory
+        if (browserInitComplete && !browser.isDestroyed) {
+            browser?.clearCache(true)
+        }
+        // Request garbage collection
+        System.gc()
+    }
+    
+    /**
+     * Handle memory trim requests from the system
+     * @param level The context of the trim, giving hints about what level of trimming to perform
+     */
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        logDebug("onTrimMemory(level: $level)")
+        
+        when (level) {
+            // App is running and not killable, but the system is running low on memory
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE,
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW,
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> {
+                // Release any caches or unnecessary resources
+                if (browserInitComplete && !browser.isDestroyed) {
+                    browser?.clearCache(true)
+                }
+            }
+            // App is in the background and the system is running low on memory
+            ComponentCallbacks2.TRIM_MEMORY_BACKGROUND,
+            ComponentCallbacks2.TRIM_MEMORY_MODERATE,
+            ComponentCallbacks2.TRIM_MEMORY_COMPLETE -> {
+                // Release more resources, app is likely to be killed
+                if (browserInitComplete && !browser.isDestroyed) {
+                    browser?.apply {
+                        pauseTimers()
+                        clearCache(true)
+                    }
+                }
+                // Request garbage collection
+                System.gc()
+            }
+        }
     }
 
     // handle configuration changes (language / screen orientation)
