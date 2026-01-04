@@ -1209,7 +1209,8 @@ class PlayerActivity : BaseActivity() {
             Log.w(TAG, "Max subtitle track selection retries reached ($SUBTITLE_TRACK_MAX_RETRIES)")
             SubtitleDebugHelper.logWarning("PlayerActivity", "Max retries reached - subtitle track not detected")
             
-            // Query track information - refreshTracks() accesses spuTracks which may help VLC return updated data
+            // Query track information - refreshTracks() accesses spuTracks which may trigger VLC
+            // to return updated data (though this behavior is not guaranteed by LibVLC API)
             refreshTracks()
             
             // Check if VLC has internally selected a subtitle track even if we can't detect it in spuTracks
@@ -1228,10 +1229,12 @@ class PlayerActivity : BaseActivity() {
             
             // Last resort: Try to manually enable the last available subtitle track
             // This handles cases where VLC has loaded the subtitle but didn't auto-select it
-            // We use .last() to get the most recently added track, consistent with the normal retry logic
+            // Note: We use .last() to select what is likely the most recently added track,
+            // consistent with the normal retry logic (line 1268). VLC's track ordering isn't
+            // guaranteed by the API, but in practice new tracks are typically appended.
             val spuTracks = mediaPlayer?.spuTracks
             if (spuTracks != null && spuTracks.isNotEmpty()) {
-                // Found subtitle tracks - enable the last one (most recently added)
+                // Found subtitle tracks - enable the last one (likely the most recently added)
                 val lastTrack = spuTracks.last()
                 mediaPlayer?.spuTrack = lastTrack.id
                 Log.i(TAG, "Fallback: Manually enabled last subtitle track: ${lastTrack.name} (ID: ${lastTrack.id})")
