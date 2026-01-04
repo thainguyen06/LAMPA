@@ -143,9 +143,9 @@ class PlayerActivity : BaseActivity() {
         private const val SEEK_TIME_MS = 10000L // 10 seconds
         private const val CONTROLS_HIDE_DELAY = 3000L // 3 seconds
         private const val TRACK_LOADING_DELAY_MS = 2000L // 2 seconds - Wait for tracks to load
-        private const val SUBTITLE_TRACK_REGISTRATION_DELAY_MS = 1500L // 1.5 seconds - Wait for subtitle track to register after addSlave (increased from 0.5s)
-        private const val SUBTITLE_TRACK_RETRY_DELAY_MS = 1000L // 1 second - Delay between subtitle track selection retries
-        private const val SUBTITLE_TRACK_MAX_RETRIES = 3 // Maximum retries for subtitle track selection
+        private const val SUBTITLE_TRACK_REGISTRATION_DELAY_MS = 2500L // 2.5 seconds - Wait for subtitle track to register after addSlave (increased to handle larger files and slower devices)
+        private const val SUBTITLE_TRACK_RETRY_DELAY_MS = 2000L // 2 seconds - Delay between subtitle track selection retries (increased for better reliability)
+        private const val SUBTITLE_TRACK_MAX_RETRIES = 5 // Maximum retries for subtitle track selection (increased to allow more time for VLC processing)
         private const val SYSTEM_TIME_UPDATE_INTERVAL = 60000L // 1 minute
         private const val MAX_RETRY_ATTEMPTS = 3 // Maximum number of retry attempts for network errors
         private const val INITIAL_RETRY_DELAY_MS = 2000L // Initial retry delay (2 seconds)
