@@ -1209,7 +1209,7 @@ class PlayerActivity : BaseActivity() {
             Log.w(TAG, "Max subtitle track selection retries reached ($SUBTITLE_TRACK_MAX_RETRIES)")
             SubtitleDebugHelper.logWarning("PlayerActivity", "Max retries reached - subtitle track not detected")
             
-            // Query track information - accessing spuTracks may help VLC return updated track data
+            // Query track information - refreshTracks() accesses spuTracks which may help VLC return updated data
             refreshTracks()
             
             // Check if VLC has internally selected a subtitle track even if we can't detect it in spuTracks
@@ -1247,8 +1247,9 @@ class PlayerActivity : BaseActivity() {
             // have loaded and selected the subtitle internally even though it's not appearing in spuTracks.
             // This is a known LibVLC behavior where external subtitles may not populate
             // the track list immediately or at all through the Java API.
-            Log.w(TAG, "Track detection failed - addSlave() succeeded but no tracks found. Subtitle may or may not be working.")
-            SubtitleDebugHelper.logWarning("PlayerActivity", "Track detection failed - addSlave() succeeded but no tracks found. Subtitle may or may not be working.")
+            val failureMessage = "Track detection failed - addSlave() succeeded but no tracks found. Subtitle may or may not be working."
+            Log.w(TAG, failureMessage)
+            SubtitleDebugHelper.logWarning("PlayerActivity", failureMessage)
             
             // Show a message indicating uncertain status
             runOnUiThread {
