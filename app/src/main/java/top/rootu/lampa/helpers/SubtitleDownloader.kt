@@ -156,6 +156,7 @@ class SubtitleDownloader(private val context: Context) {
             // Create cache directory if it doesn't exist
             // Use externalCacheDir instead of cacheDir for VLC native library accessibility
             // External cache is still private to the app but readable by native code
+            // Falls back to internal cacheDir if external storage is unavailable (e.g., SD card unmounted)
             val baseDir = context.externalCacheDir ?: context.cacheDir
             Log.d(TAG, "Using base cache directory: ${baseDir.absolutePath}")
             SubtitleDebugHelper.logInfo("SubtitleDownloader", "Base cache directory: ${baseDir.absolutePath}")
@@ -200,8 +201,7 @@ class SubtitleDownloader(private val context: Context) {
             }
             
             val fileSize = subtitleFile.length()
-            Log.d(TAG, "Subtitle downloaded successfully: ${subtitleFile.absolutePath}")
-            Log.d(TAG, "Subtitle Downloaded: ${subtitleFile.absolutePath}, size: $fileSize bytes")
+            Log.d(TAG, "Subtitle downloaded successfully: ${subtitleFile.absolutePath}, size: $fileSize bytes, readable: ${subtitleFile.canRead()}")
             SubtitleDebugHelper.logInfo("SubtitleDownloader", "Subtitle Downloaded: ${subtitleFile.absolutePath}")
             SubtitleDebugHelper.logInfo("SubtitleDownloader", "File size: $fileSize bytes, readable: ${subtitleFile.canRead()}")
             return@withContext subtitleFile.absolutePath
