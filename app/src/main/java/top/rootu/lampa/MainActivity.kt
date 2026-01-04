@@ -1,6 +1,7 @@
 package top.rootu.lampa
 
 import android.annotation.SuppressLint
+import android.app.Dialog
 import android.app.SearchManager
 import android.content.ComponentCallbacks2
 import android.content.ComponentName
@@ -18,6 +19,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Build.VERSION
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
@@ -33,6 +36,7 @@ import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.addCallback
@@ -93,6 +97,7 @@ import top.rootu.lampa.helpers.PermHelpers
 import top.rootu.lampa.helpers.PermHelpers.hasMicPermissions
 import top.rootu.lampa.helpers.PermHelpers.isInstallPermissionDeclared
 import top.rootu.lampa.helpers.PermHelpers.verifyMicPermissions
+import top.rootu.lampa.helpers.SubtitleDebugHelper
 import top.rootu.lampa.helpers.Prefs
 import top.rootu.lampa.helpers.Prefs.FAV
 import top.rootu.lampa.helpers.Prefs.addUrlHistory
@@ -2224,10 +2229,61 @@ class MainActivity : BaseActivity(),
                 showMenuDialog()
                 showFab(false)
             }
+            // Add long press listener to show subtitle debug menu
+            setOnLongClickListener {
+                showSubtitleDebugMenu()
+                showFab(false)
+                true
+            }
         }
         if (!isMenuVisible) {
             showFab(true)
         }
+    }
+
+    /**
+     * Show subtitle debug menu with options to export logs or trigger diagnostic crash
+     * This is accessible by long-pressing the LAMPA button (FAB)
+     */
+    private fun showSubtitleDebugMenu() {
+        val dialog = Dialog(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog)
+        dialog.setContentView(R.layout.dialog_subtitle_debug)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        
+        val exportLogsButton = dialog.findViewById<Button>(R.id.btn_export_logs)
+        val triggerCrashButton = dialog.findViewById<Button>(R.id.btn_trigger_crash)
+        val clearLogsButton = dialog.findViewById<Button>(R.id.btn_clear_logs)
+        val closeButton = dialog.findViewById<Button>(R.id.btn_close_debug)
+        
+        exportLogsButton.setOnClickListener {
+            val logPath = SubtitleDebugHelper.exportLogsToFile(this)
+            if (logPath != null) {
+                App.toast("Subtitle logs exported to: $logPath", true)
+            } else {
+                App.toast("Failed to export logs", true)
+            }
+            dialog.dismiss()
+        }
+        
+        triggerCrashButton.setOnClickListener {
+            dialog.dismiss()
+            // Trigger diagnostic crash with subtitle logs
+            Handler(Looper.getMainLooper()).postDelayed({
+                SubtitleDebugHelper.triggerDiagnosticCrash()
+            }, 500)
+        }
+        
+        clearLogsButton.setOnClickListener {
+            SubtitleDebugHelper.clearLogs()
+            App.toast("Subtitle debug logs cleared", false)
+            dialog.dismiss()
+        }
+        
+        closeButton.setOnClickListener {
+            dialog.dismiss()
+        }
+        
+        dialog.show()
     }
 
     private fun runJsStorageChangeField(name: String) {
