@@ -119,6 +119,10 @@ object SubtitleDebugHelper {
     
     /**
      * Export logs to a file in the Download directory
+     * 
+     * Note: Uses Environment.getExternalStorageDirectory() which is deprecated in API 29+
+     * but required to access the specific path /storage/emulated/0/Download/ as requested.
+     * Falls back to app-specific directory on failure.
      */
     fun exportLogsToFile(context: Context): String? {
         try {
@@ -127,7 +131,8 @@ object SubtitleDebugHelper {
             val timestamp = LocalDateTime.now().format(formatter)
             val filename = "subtitle_debug_${timestamp}.log"
             
-            // Save to Download directory as requested
+            // Save to Download directory as requested (/storage/emulated/0/Download/)
+            // Note: This may not work on Android 11+ (API 30+) due to scoped storage
             val downloadDir = File(Environment.getExternalStorageDirectory(), Environment.DIRECTORY_DOWNLOADS)
             if (!downloadDir.exists()) {
                 downloadDir.mkdirs()
@@ -135,11 +140,25 @@ object SubtitleDebugHelper {
             
             val logFile = File(downloadDir, filename)
             
-            FileOutputStream(logFile).use { output ->
-                output.write(logContent.toByteArray())
+            try {
+                FileOutputStream(logFile).use { output ->
+                    output.write(logContent.toByteArray())
+                }
+                
+                Log.i(TAG, "Subtitle debug log exported to: ${logFile.absolutePath}")
+            } catch (e: Exception) {
+                // If we can't write to Download folder (Android 11+ scoped storage), fall back to app directory
+                Log.w(TAG, "Could not save to Download directory, trying app-specific directory", e)
+                val appDownloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                val fallbackFile = File(appDownloadDir, filename)
+                
+                FileOutputStream(fallbackFile).use { output ->
+                    output.write(logContent.toByteArray())
+                }
+                
+                Log.i(TAG, "Subtitle debug log exported to app directory: ${fallbackFile.absolutePath}")
+                return fallbackFile.absolutePath
             }
-            
-            Log.i(TAG, "Subtitle debug log exported to: ${logFile.absolutePath}")
             
             // Also save to cache directory as backup
             try {

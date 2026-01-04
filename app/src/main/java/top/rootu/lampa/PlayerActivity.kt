@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.View
 import android.view.WindowInsets
@@ -997,9 +998,10 @@ class PlayerActivity : BaseActivity() {
     }
 
     private fun searchAndLoadExternalSubtitles(videoUrl: String) {
-        val currentTime = System.currentTimeMillis()
+        val currentTime = SystemClock.elapsedRealtime()
         
         // Debounce: ignore calls within 2 seconds of the last one
+        // Using elapsedRealtime() instead of currentTimeMillis() to avoid issues with system clock changes
         if (currentTime - lastSubtitleSearchTimestamp < subtitleSearchDebounceMs) {
             Log.d(TAG, "searchAndLoadExternalSubtitles: Debounced - ignoring call (too soon after previous)")
             SubtitleDebugHelper.logInfo("PlayerActivity", "searchAndLoadExternalSubtitles: Debounced call ignored")
@@ -1243,23 +1245,12 @@ class PlayerActivity : BaseActivity() {
      */
     private fun addAndSelectSubtitle(subtitlePath: String): Boolean {
         try {
-            // Verify the subtitle file exists (if it's a local file)
-            if (subtitlePath.startsWith("/")) {
-                val subtitleFile = File(subtitlePath)
-                if (!subtitleFile.exists()) {
-                    Log.e(TAG, "Subtitle file does not exist: $subtitlePath")
-                    SubtitleDebugHelper.logError("PlayerActivity", "Subtitle file not found: $subtitlePath")
-                    return false
-                }
-                
-                Log.d(TAG, "Subtitle file exists: ${subtitleFile.absolutePath}, size: ${subtitleFile.length()} bytes")
-                SubtitleDebugHelper.logDebug("PlayerActivity", "File exists, size: ${subtitleFile.length()} bytes")
-            }
-            
             // Store track count BEFORE adding to detect new track after registration delay
             val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
             
             // Convert file path to proper URI format for LibVLC
+            // Note: We use Uri.fromFile() here because LibVLC's native code requires file:// URIs
+            // This is internal to VLC and not shared with other apps, so FileProvider is not needed
             val subtitleUri = when {
                 subtitlePath.startsWith("http://") || subtitlePath.startsWith("https://") -> {
                     // Network URL - use as-is
@@ -1270,8 +1261,18 @@ class PlayerActivity : BaseActivity() {
                     subtitlePath
                 }
                 subtitlePath.startsWith("/") -> {
-                    // Local file path - convert to proper URI
+                    // Local file path - verify it exists and convert to proper URI
                     val subtitleFile = File(subtitlePath)
+                    if (!subtitleFile.exists()) {
+                        Log.e(TAG, "Subtitle file does not exist: $subtitlePath")
+                        SubtitleDebugHelper.logError("PlayerActivity", "Subtitle file not found: $subtitlePath")
+                        return false
+                    }
+                    
+                    Log.d(TAG, "Subtitle file exists: ${subtitleFile.absolutePath}, size: ${subtitleFile.length()} bytes")
+                    SubtitleDebugHelper.logDebug("PlayerActivity", "File exists, size: ${subtitleFile.length()} bytes")
+                    
+                    // Convert to file:// URI
                     Uri.fromFile(subtitleFile).toString()
                 }
                 else -> {
