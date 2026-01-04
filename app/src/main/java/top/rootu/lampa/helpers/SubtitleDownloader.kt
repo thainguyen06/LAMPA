@@ -154,7 +154,9 @@ class SubtitleDownloader(private val context: Context) {
             val body = response.body() ?: return@withContext null
             
             // Create cache directory if it doesn't exist
-            val cacheDir = File(context.cacheDir, SUBTITLE_CACHE_DIR)
+            // Use externalCacheDir instead of cacheDir for VLC native library accessibility
+            // External cache is still private to the app but readable by native code
+            val cacheDir = File(context.externalCacheDir ?: context.cacheDir, SUBTITLE_CACHE_DIR)
             if (!cacheDir.exists()) {
                 if (!cacheDir.mkdirs()) {
                     Log.e(TAG, "Failed to create cache directory: ${cacheDir.absolutePath}")
@@ -199,7 +201,8 @@ class SubtitleDownloader(private val context: Context) {
      */
     fun clearCache() {
         try {
-            val cacheDir = File(context.cacheDir, SUBTITLE_CACHE_DIR)
+            // Use externalCacheDir to match where files are downloaded
+            val cacheDir = File(context.externalCacheDir ?: context.cacheDir, SUBTITLE_CACHE_DIR)
             if (cacheDir.exists()) {
                 cacheDir.listFiles()?.forEach { file ->
                     if (file.isFile) {
