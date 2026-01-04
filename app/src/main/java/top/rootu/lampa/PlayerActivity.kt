@@ -1381,6 +1381,56 @@ class PlayerActivity : BaseActivity() {
     }
     
     /**
+     * ALTERNATIVE/FALLBACK METHOD: Load subtitles using Media.addOption()
+     * 
+     * This is an alternative approach to loading subtitles that can be used if addSlave() 
+     * continues to fail. This method must be called BEFORE playback starts, unlike addSlave()
+     * which works during playback.
+     * 
+     * Usage Instructions:
+     * 1. Download the subtitle file to externalCacheDir (already implemented)
+     * 2. BEFORE calling mediaPlayer.play(), add this option to the Media object:
+     *    media.addOption(":sub-file=${subtitleFile.absolutePath}")
+     *    
+     * Example Implementation:
+     * ```kotlin
+     * val media = Media(libVLC, Uri.parse(videoUrl)).apply {
+     *     // ... other options ...
+     *     
+     *     // Add subtitle file if available
+     *     pendingSubtitlePath?.let { subtitlePath ->
+     *         val subtitleFile = File(subtitlePath)
+     *         if (subtitleFile.exists()) {
+     *             addOption(":sub-file=${subtitleFile.absolutePath}")
+     *             Log.d(TAG, "Added subtitle via Media option: ${subtitleFile.absolutePath}")
+     *         }
+     *     }
+     * }
+     * mediaPlayer?.media = media
+     * media.release()
+     * mediaPlayer?.play()
+     * ```
+     * 
+     * Key Differences from addSlave():
+     * - Must be called before playback starts (during Media creation)
+     * - Uses absolute file path, not file:// URI
+     * - More reliable on some Android versions with strict storage policies
+     * - Cannot add subtitles after playback has started
+     * 
+     * Path Format:
+     * - Use absolute path: /storage/emulated/0/Android/data/.../cache/subtitle_cache/file.srt
+     * - DO NOT use file:// URI prefix with addOption()
+     * - File must be in externalCacheDir for native library access
+     * 
+     * Current Implementation Status:
+     * - Currently using addSlave() for runtime subtitle loading
+     * - This fallback method is documented but not implemented
+     * - Can be enabled if addSlave() continues to have issues on Android 16+
+     * 
+     * @see addAndSelectSubtitle for the current addSlave() implementation
+     */
+    
+    /**
      * Handle playback errors with retry logic for network stream issues
      * 
      * VLC can encounter various network errors:

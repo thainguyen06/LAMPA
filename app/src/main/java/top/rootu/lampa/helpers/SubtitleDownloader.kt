@@ -154,13 +154,22 @@ class SubtitleDownloader(private val context: Context) {
             val body = response.body() ?: return@withContext null
             
             // Create cache directory if it doesn't exist
-            val cacheDir = File(context.cacheDir, SUBTITLE_CACHE_DIR)
+            // Use externalCacheDir instead of cacheDir for VLC native library accessibility
+            // External cache is still private to the app but readable by native code
+            // Falls back to internal cacheDir if external storage is unavailable (e.g., SD card unmounted)
+            val baseDir = context.externalCacheDir ?: context.cacheDir
+            Log.d(TAG, "Using base cache directory: ${baseDir.absolutePath}")
+            SubtitleDebugHelper.logInfo("SubtitleDownloader", "Base cache directory: ${baseDir.absolutePath}")
+            
+            val cacheDir = File(baseDir, SUBTITLE_CACHE_DIR)
             if (!cacheDir.exists()) {
                 if (!cacheDir.mkdirs()) {
                     Log.e(TAG, "Failed to create cache directory: ${cacheDir.absolutePath}")
+                    SubtitleDebugHelper.logError("SubtitleDownloader", "Failed to create cache directory: ${cacheDir.absolutePath}")
                     return@withContext null
                 }
                 Log.d(TAG, "Created cache directory: ${cacheDir.absolutePath}")
+                SubtitleDebugHelper.logInfo("SubtitleDownloader", "Created cache directory: ${cacheDir.absolutePath}")
             }
             
             // Generate a unique filename
@@ -172,6 +181,7 @@ class SubtitleDownloader(private val context: Context) {
             subtitleFile.parentFile?.let { parent ->
                 if (!parent.exists() && !parent.mkdirs()) {
                     Log.e(TAG, "Failed to create parent directory for subtitle file: ${parent.absolutePath}")
+                    SubtitleDebugHelper.logError("SubtitleDownloader", "Failed to create parent directory: ${parent.absolutePath}")
                     return@withContext null
                 }
             }
@@ -183,9 +193,17 @@ class SubtitleDownloader(private val context: Context) {
                 }
             }
             
-            Log.d(TAG, "Subtitle downloaded successfully: ${subtitleFile.absolutePath}")
-            Log.d(TAG, "Subtitle Downloaded: ${subtitleFile.absolutePath}")
+            // Verify file was written successfully
+            if (!subtitleFile.exists()) {
+                Log.e(TAG, "Subtitle file write verification failed: file does not exist after writing")
+                SubtitleDebugHelper.logError("SubtitleDownloader", "File verification failed: ${subtitleFile.absolutePath}")
+                return@withContext null
+            }
+            
+            val fileSize = subtitleFile.length()
+            Log.d(TAG, "Subtitle downloaded successfully: ${subtitleFile.absolutePath}, size: $fileSize bytes, readable: ${subtitleFile.canRead()}")
             SubtitleDebugHelper.logInfo("SubtitleDownloader", "Subtitle Downloaded: ${subtitleFile.absolutePath}")
+            SubtitleDebugHelper.logInfo("SubtitleDownloader", "File size: $fileSize bytes, readable: ${subtitleFile.canRead()}")
             return@withContext subtitleFile.absolutePath
             
         } catch (e: Exception) {
@@ -199,7 +217,8 @@ class SubtitleDownloader(private val context: Context) {
      */
     fun clearCache() {
         try {
-            val cacheDir = File(context.cacheDir, SUBTITLE_CACHE_DIR)
+            // Use externalCacheDir to match where files are downloaded
+            val cacheDir = File(context.externalCacheDir ?: context.cacheDir, SUBTITLE_CACHE_DIR)
             if (cacheDir.exists()) {
                 cacheDir.listFiles()?.forEach { file ->
                     if (file.isFile) {

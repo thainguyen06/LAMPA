@@ -338,7 +338,9 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
             }
             
             // Create cache directory
-            val cacheDir = File(context.cacheDir, SUBTITLE_CACHE_DIR)
+            // Use externalCacheDir instead of cacheDir for VLC native library accessibility
+            // External cache is still private to the app but readable by native code
+            val cacheDir = File(context.externalCacheDir ?: context.cacheDir, SUBTITLE_CACHE_DIR)
             if (!cacheDir.exists()) {
                 val created = cacheDir.mkdirs()
                 SubtitleDebugHelper.logDebug(getName(), "Cache directory created: $created")
