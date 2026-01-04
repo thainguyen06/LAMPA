@@ -270,6 +270,9 @@ class SysView(override val mainActivity: MainActivity, override val viewResId: I
                 // Handle the crash by cleaning up and showing error message
                 try {
                     // Remove crashed WebView from parent
+                    // Note: isAttachedToWindowCompat() is used for API compatibility
+                    // It checks if the view is still attached to its window hierarchy
+                    // before attempting removal, preventing IllegalStateException
                     if (view != null && view.isAttachedToWindowCompat()) {
                         (view.parent as? ViewGroup)?.removeView(view)
                     }

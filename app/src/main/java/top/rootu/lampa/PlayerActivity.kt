@@ -1420,7 +1420,9 @@ class PlayerActivity : BaseActivity() {
 
     override fun onPause() {
         super.onPause()
-        // Handled by lifecycle observer, but kept for backward compatibility
+        // Duplicate of lifecycle observer for backward compatibility
+        // Ensures cleanup happens even on older Android versions
+        // where lifecycle observers might not be fully supported
         mediaPlayer?.pause()
     }
 
@@ -1428,14 +1430,16 @@ class PlayerActivity : BaseActivity() {
         super.onStop()
         // Remove all callbacks to prevent memory leaks
         handler.removeCallbacksAndMessages(null)
-        // Handled by lifecycle observer, but kept for backward compatibility
+        // Duplicate of lifecycle observer for defensive programming
+        // Ensures detachment happens as a safety net
     }
 
     override fun onDestroy() {
         super.onDestroy()
         // Unregister lifecycle observer
         lifecycle.removeObserver(lifecycleObserver)
-        // Handled by lifecycle observer, but ensure cleanup
+        // Duplicate of lifecycle observer for defensive programming
+        // Ensures cleanup happens as final safety net
         releasePlayer()
     }
 

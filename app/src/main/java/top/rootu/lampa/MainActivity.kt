@@ -377,18 +377,18 @@ class MainActivity : BaseActivity(),
         
         when (level) {
             // App is running and not killable, but the system is running low on memory
-            TRIM_MEMORY_RUNNING_MODERATE,
-            TRIM_MEMORY_RUNNING_LOW,
-            TRIM_MEMORY_RUNNING_CRITICAL -> {
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE,
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW,
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> {
                 // Release any caches or unnecessary resources
                 if (browserInitComplete && !browser.isDestroyed) {
                     browser?.clearCache(true)
                 }
             }
             // App is in the background and the system is running low on memory
-            TRIM_MEMORY_BACKGROUND,
-            TRIM_MEMORY_MODERATE,
-            TRIM_MEMORY_COMPLETE -> {
+            ComponentCallbacks2.TRIM_MEMORY_BACKGROUND,
+            ComponentCallbacks2.TRIM_MEMORY_MODERATE,
+            ComponentCallbacks2.TRIM_MEMORY_COMPLETE -> {
                 // Release more resources, app is likely to be killed
                 if (browserInitComplete && !browser.isDestroyed) {
                     browser?.apply {
