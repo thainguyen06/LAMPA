@@ -112,6 +112,9 @@ class PlayerActivity : BaseActivity() {
     // Store subtitle URL passed via intent for later loading
     private var pendingSubtitleUrl: String? = null
     
+    // State for reloadVideoWithSubtitle - stores position to restore after media restart
+    private var savedPlaybackPosition: Long? = null
+    
     // Debounce state for searchAndLoadExternalSubtitles
     private var lastSubtitleSearchTimestamp: Long = 0
     private val subtitleSearchDebounceMs = 2000L // 2 seconds debounce window
@@ -392,6 +395,15 @@ class PlayerActivity : BaseActivity() {
                                 loadingSpinner?.visibility = View.GONE
                                 updatePlayPauseButton()
                                 startProgressUpdate()
+                                
+                                // Restore saved playback position (for reloadVideoWithSubtitle)
+                                savedPlaybackPosition?.let { position ->
+                                    mediaPlayer?.time = position
+                                    Log.d(TAG, "Restored playback position after reload: ${position}ms")
+                                    SubtitleDebugHelper.logInfo("PlayerActivity", "Playback position restored: ${position}ms")
+                                    savedPlaybackPosition = null // Clear after restoring
+                                }
+                                
                                 // Auto-select preferred audio/subtitle tracks
                                 autoSelectPreferredTracks()
                                 // Restore saved aspect ratio after player is ready
@@ -1053,17 +1065,15 @@ class PlayerActivity : BaseActivity() {
                     SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle downloaded successfully: $subtitlePath")
                     
                     runOnUiThread {
-                        // Use the robust addAndSelectSubtitle function
-                        val success = addAndSelectSubtitle(subtitlePath)
+                        // Use the Media Option Restart strategy for downloaded local files
+                        Log.d(TAG, "Using reloadVideoWithSubtitle for downloaded subtitle")
+                        SubtitleDebugHelper.logInfo("PlayerActivity", "Applying Media Option Restart strategy")
+                        
+                        val success = reloadVideoWithSubtitle(subtitlePath)
                         if (!success) {
-                            Log.w(TAG, "addAndSelectSubtitle failed, attempting forceLoadSubtitle fallback")
-                            SubtitleDebugHelper.logWarning("PlayerActivity", "Primary strategies failed, trying forceLoadSubtitle")
-                            
-                            // Attempt forceLoadSubtitle as fallback for local files
-                            val forceSuccess = forceLoadSubtitle(subtitlePath)
-                            if (!forceSuccess) {
-                                App.toast(R.string.subtitle_load_failed, true)
-                            }
+                            Log.e(TAG, "reloadVideoWithSubtitle failed")
+                            SubtitleDebugHelper.logError("PlayerActivity", "Media Option Restart failed")
+                            App.toast(R.string.subtitle_load_failed, true)
                         }
                     }
                 } else {
@@ -1079,27 +1089,38 @@ class PlayerActivity : BaseActivity() {
     }
 
     /**
-     * Load subtitle from a direct URL after playback has started
-     * This method uses addSlave() which works for already-playing media
-     * If addSlave fails, it will attempt to use forceLoadSubtitle as a fallback
+     * Load subtitle from a direct URL or file path after playback has started
+     * 
+     * This method now uses the Media Option Restart strategy (reloadVideoWithSubtitle)
+     * which is more reliable when addSlave() is ineffective.
+     * 
+     * For local files: Uses reloadVideoWithSubtitle
+     * For HTTP URLs: Still attempts addAndSelectSubtitle (as media restart doesn't work with downloads)
      */
     private fun loadSubtitleFromUrl(subtitleUrl: String) {
         Log.d(TAG, "Loading subtitle from URL: $subtitleUrl")
         
         handler.postDelayed({
-            // Use the robust addAndSelectSubtitle function
-            val success = addAndSelectSubtitle(subtitleUrl)
-            if (!success) {
-                Log.w(TAG, "addAndSelectSubtitle failed, attempting forceLoadSubtitle fallback")
-                SubtitleDebugHelper.logWarning("PlayerActivity", "Primary strategies failed, trying forceLoadSubtitle")
+            // For local files, use the Media Option Restart strategy
+            if (subtitleUrl.startsWith("/") || subtitleUrl.startsWith("file://")) {
+                Log.d(TAG, "Local file detected, using reloadVideoWithSubtitle strategy")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "Using Media Option Restart for local file")
                 
-                // Only use forceLoadSubtitle for local files (not URLs)
-                if (subtitleUrl.startsWith("/") || subtitleUrl.startsWith("file://")) {
-                    val forceSuccess = forceLoadSubtitle(subtitleUrl)
-                    if (!forceSuccess) {
-                        App.toast(R.string.subtitle_load_failed, true)
-                    }
-                } else {
+                val success = reloadVideoWithSubtitle(subtitleUrl)
+                if (!success) {
+                    Log.e(TAG, "reloadVideoWithSubtitle failed")
+                    SubtitleDebugHelper.logError("PlayerActivity", "Media Option Restart failed")
+                    App.toast(R.string.subtitle_load_failed, true)
+                }
+            } else {
+                // For HTTP URLs, still try addAndSelectSubtitle as fallback
+                Log.d(TAG, "HTTP URL detected, attempting addAndSelectSubtitle")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "HTTP URL - trying addAndSelectSubtitle")
+                
+                val success = addAndSelectSubtitle(subtitleUrl)
+                if (!success) {
+                    Log.w(TAG, "addAndSelectSubtitle failed for HTTP URL")
+                    SubtitleDebugHelper.logWarning("PlayerActivity", "addAndSelectSubtitle failed for HTTP subtitle")
                     App.toast(R.string.subtitle_load_failed, true)
                 }
             }
@@ -1539,6 +1560,119 @@ class PlayerActivity : BaseActivity() {
         } catch (e: Exception) {
             Log.e(TAG, "Error in forceLoadSubtitle", e)
             SubtitleDebugHelper.logError("PlayerActivity", "Exception in Strategy A: ${e.message}", e)
+            return false
+        }
+    }
+    
+    /**
+     * Reload video with subtitle using Media Option Restart strategy
+     * 
+     * This is the recommended approach when addSlave() is ineffective.
+     * It restarts the media with the subtitle file attached via VLC command-line option.
+     * 
+     * Key Features:
+     * - Event-driven position restore (listens for Playing event)
+     * - Uses :sub-file VLC option with raw path (no file:// prefix)
+     * - Automatically tracks subtitle refresh
+     * 
+     * This method:
+     * 1. Saves current playback time (mediaPlayer.time)
+     * 2. Creates new Media object using original video URL
+     * 3. Adds VLC CLI option: :sub-file=$subtitlePath (using raw path)
+     * 4. Reloads: mediaPlayer.media = media, mediaPlayer.play()
+     * 5. Restores position on Playing event (handled by event listener)
+     * 
+     * @param subtitlePath The absolute file path to the subtitle file
+     *                     (e.g., /storage/emulated/0/Android/data/.../subtitle.srt)
+     *                     Can include file:// prefix which will be stripped automatically.
+     * @return True if the reload was initiated successfully, false otherwise
+     */
+    fun reloadVideoWithSubtitle(subtitlePath: String): Boolean {
+        try {
+            Log.d(TAG, "reloadVideoWithSubtitle called with path: $subtitlePath")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "Media Option Restart - Reloading with subtitle: $subtitlePath")
+            
+            // Convert to raw path (remove file:// prefix if present)
+            val rawPath = if (subtitlePath.startsWith("file://")) {
+                subtitlePath.substring(7) // Remove "file://" prefix
+            } else {
+                subtitlePath
+            }
+            
+            // Validate file exists
+            val subtitleFile = File(rawPath)
+            if (!subtitleFile.exists()) {
+                Log.e(TAG, "reloadVideoWithSubtitle: Subtitle file does not exist: $rawPath")
+                SubtitleDebugHelper.logError("PlayerActivity", "Subtitle file not found: $rawPath")
+                return false
+            }
+            
+            Log.d(TAG, "Subtitle file validated: ${subtitleFile.absolutePath}, size: ${subtitleFile.length()} bytes")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "File validated, size: ${subtitleFile.length()} bytes")
+            
+            // Step 1: Save State - Get current playback time
+            val currentPosition = mediaPlayer?.time ?: 0L
+            savedPlaybackPosition = currentPosition
+            
+            val currentVideoUrl = videoUrl ?: run {
+                Log.e(TAG, "reloadVideoWithSubtitle: No video URL available")
+                SubtitleDebugHelper.logError("PlayerActivity", "Cannot restart - no video URL stored")
+                return false
+            }
+            
+            Log.d(TAG, "Saved playback position: ${currentPosition}ms")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "Position saved: ${currentPosition}ms, preparing media restart")
+            
+            // Get LibVLC instance
+            val vlc = libVLC ?: run {
+                Log.e(TAG, "reloadVideoWithSubtitle: LibVLC not initialized")
+                SubtitleDebugHelper.logError("PlayerActivity", "LibVLC instance is null")
+                return false
+            }
+            
+            // Stop current playback
+            mediaPlayer?.stop()
+            Log.d(TAG, "Stopped current playback")
+            
+            // Step 2: Create New Media with subtitle option
+            val newMedia = Media(vlc, Uri.parse(currentVideoUrl)).apply {
+                // Restore existing options
+                addOption(":codec=all")
+                addOption(":network-caching=10000")
+                addOption(":http-reconnect")
+                addOption(":http-continuous")
+                
+                // Step 3: Add VLC CLI option for subtitle (using RAW PATH, no file:// prefix)
+                addOption(":sub-file=${subtitleFile.absolutePath}")
+                Log.d(TAG, "Added VLC option: :sub-file=${subtitleFile.absolutePath}")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "VLC option set: :sub-file=${subtitleFile.absolutePath}")
+                
+                // Parse media to detect tracks
+                parseAsync()
+            }
+            
+            // Step 4: Reload - Set new media and restart playback
+            mediaPlayer?.media = newMedia
+            newMedia.release()
+            mediaPlayer?.play()
+            
+            Log.d(TAG, "Media restarted with subtitle option")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "Media reloaded, waiting for Playing event to restore position")
+            
+            // Step 5: Position restore happens automatically in Playing event handler
+            // The savedPlaybackPosition will be restored when MediaPlayer.Event.Playing fires
+            
+            // Refresh tracks after a delay to show the new subtitle track
+            handler.postDelayed({
+                refreshTracks()
+                SubtitleDebugHelper.logInfo("PlayerActivity", "Track list refreshed after media reload")
+            }, TRACK_LOADING_DELAY_MS)
+            
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in reloadVideoWithSubtitle", e)
+            SubtitleDebugHelper.logError("PlayerActivity", "Exception in reloadVideoWithSubtitle: ${e.message}", e)
+            savedPlaybackPosition = null // Clear saved position on error
             return false
         }
     }
