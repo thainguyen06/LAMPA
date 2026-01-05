@@ -159,6 +159,9 @@ class PlayerActivity : BaseActivity() {
         private const val INITIAL_RETRY_DELAY_MS = 2000L // Initial retry delay (2 seconds)
         private const val ERROR_MESSAGE_DISPLAY_TIME_MS = 1000L // Time to display error before closing (1 second)
         
+        // Regex pattern for detecting generic VLC track names (e.g., "Track 1", "Track 2")
+        private val GENERIC_TRACK_NAME_REGEX = Regex("^Track \\d+$")
+        
         // LibVLC 3.6.0 Media event type constants
         // Note: Media class uses integer constants, not a nested Event class like MediaPlayer
         // Reference: org.videolan.libvlc.Media event types
@@ -1280,10 +1283,10 @@ class PlayerActivity : BaseActivity() {
         try {
             val displayName = when {
                 // If track name is null or generic, use filename from path
-                trackName.isNullOrBlank() || trackName.matches(Regex("^Track \\d+$")) -> {
+                trackName.isNullOrBlank() || trackName.matches(GENERIC_TRACK_NAME_REGEX) -> {
                     lastLoadedSubtitlePath?.let { path ->
-                        // Extract filename from path
-                        val filename = File(path).name
+                        // Extract filename from path efficiently
+                        val filename = path.substringAfterLast('/')
                         Log.d(TAG, "Using filename from path: $filename")
                         filename
                     } ?: trackName ?: "Unknown"
