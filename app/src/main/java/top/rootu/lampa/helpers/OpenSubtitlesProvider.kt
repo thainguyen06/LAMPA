@@ -224,7 +224,7 @@ class OpenSubtitlesProvider(private val context: Context) : SubtitleProvider {
                 val dataArray = jsonResponse.getJSONArray("data")
                 SubtitleDebugHelper.logInfo(getName(), "Found ${dataArray.length()} subtitle entries in response")
                 
-                for (i in 0 until dataArray.length().coerceAtMost(5)) {
+                for (i in 0 until dataArray.length().coerceAtMost(20)) {
                     val item = dataArray.getJSONObject(i)
                     val attributes = item.getJSONObject("attributes")
                     val files = attributes.optJSONArray("files")
