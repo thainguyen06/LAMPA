@@ -978,7 +978,6 @@ class PlayerActivity : BaseActivity() {
             tvSubtitleDelay?.text = String.format("%.1fs", subtitleDelay / 1000.0)
             applySubtitleDelay()
         }
-        }
         
         applyButton.setOnClickListener {
             // Get selected font size
