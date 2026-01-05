@@ -89,6 +89,7 @@ class PlayerActivity : BaseActivity() {
     private var btnBack: ImageButton? = null
     private var btnPlayPause: ImageButton? = null
     private var btnTrackSelection: ImageButton? = null
+    private var btnLoadSubtitle: ImageButton? = null
     private var btnAspectRatio: ImageButton? = null
     private var btnSubtitleSettings: ImageButton? = null
     private var seekBar: SeekBar? = null
@@ -99,6 +100,9 @@ class PlayerActivity : BaseActivity() {
     private var videoTitle: TextView? = null
     private var topControls: View? = null
     private var bottomControls: View? = null
+    
+    // Multiple subtitle support
+    private val loadedSubtitlePaths = mutableListOf<String>()
     
     // Subtitle settings
     private var subtitleFontSize = 16 // Medium
@@ -272,6 +276,7 @@ class PlayerActivity : BaseActivity() {
         btnBack = findViewById(R.id.btn_back)
         btnPlayPause = findViewById(R.id.btn_play_pause)
         btnTrackSelection = findViewById(R.id.btn_track_selection)
+        btnLoadSubtitle = findViewById(R.id.btn_load_subtitle)
         btnAspectRatio = findViewById(R.id.btn_aspect_ratio)
         btnSubtitleSettings = findViewById(R.id.btn_subtitle_settings)
         seekBar = findViewById(R.id.player_seekbar)
@@ -300,6 +305,10 @@ class PlayerActivity : BaseActivity() {
 
         btnTrackSelection?.setOnClickListener {
             showTrackSelectionDialog()
+        }
+
+        btnLoadSubtitle?.setOnClickListener {
+            showLoadSubtitleDialog()
         }
 
         btnAspectRatio?.setOnClickListener {
@@ -1086,6 +1095,67 @@ class PlayerActivity : BaseActivity() {
         }
     }
 
+    private fun showLoadSubtitleDialog() {
+        val dialog = Dialog(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog)
+        dialog.setContentView(R.layout.dialog_load_subtitle)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        
+        val subtitleFilesList = dialog.findViewById<android.widget.LinearLayout>(R.id.subtitle_files_list)
+        val browseButton = dialog.findViewById<Button>(R.id.btn_browse_files)
+        val closeButton = dialog.findViewById<Button>(R.id.btn_close_load_subtitle)
+        
+        // Display currently loaded subtitle files
+        fun refreshSubtitleList() {
+            subtitleFilesList?.removeAllViews()
+            
+            if (loadedSubtitlePaths.isEmpty()) {
+                val emptyText = TextView(this).apply {
+                    text = "No subtitle files loaded yet"
+                    textSize = 14f
+                    setTextColor(0xFF888888.toInt())
+                    setPadding(16, 16, 16, 16)
+                }
+                subtitleFilesList?.addView(emptyText)
+            } else {
+                loadedSubtitlePaths.forEachIndexed { index, path ->
+                    val fileName = path.substringAfterLast("/")
+                    val fileView = TextView(this).apply {
+                        text = "${index + 1}. $fileName"
+                        textSize = 16f
+                        setTextColor(0xFFFFFFFF.toInt())
+                        setPadding(16, 12, 16, 12)
+                        setCompoundDrawablesWithIntrinsicBounds(
+                            android.R.drawable.ic_menu_info_details,
+                            0, 0, 0
+                        )
+                        compoundDrawablePadding = 12
+                    }
+                    subtitleFilesList?.addView(fileView)
+                }
+            }
+        }
+        
+        refreshSubtitleList()
+        
+        browseButton?.setOnClickListener {
+            // For now, prompt user to use external subtitle URL or download
+            // In a full implementation, this would open a file picker
+            App.toast("Use external subtitle providers or download subtitles first", false)
+            
+            // Auto-search for subtitles based on video filename
+            videoUrl?.let { url ->
+                searchAndLoadExternalSubtitles(url)
+            }
+            dialog.dismiss()
+        }
+        
+        closeButton?.setOnClickListener {
+            dialog.dismiss()
+        }
+        
+        dialog.show()
+    }
+
     private fun searchAndLoadExternalSubtitles(videoUrl: String) {
         val currentTime = SystemClock.elapsedRealtime()
         
@@ -1139,6 +1209,11 @@ class PlayerActivity : BaseActivity() {
                     Log.d(TAG, "External subtitle downloaded: $subtitlePath")
                     SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle downloaded successfully: $subtitlePath")
                     
+                    // Track loaded subtitle
+                    if (!loadedSubtitlePaths.contains(subtitlePath)) {
+                        loadedSubtitlePaths.add(subtitlePath)
+                    }
+                    
                     runOnUiThread {
                         // Use the Media Option Restart strategy for downloaded local files
                         Log.d(TAG, "Using reloadVideoWithSubtitle for downloaded subtitle")
@@ -1174,6 +1249,11 @@ class PlayerActivity : BaseActivity() {
      */
     private fun loadSubtitleFromUrl(subtitleUrl: String) {
         Log.d(TAG, "Loading subtitle from URL: $subtitleUrl")
+        
+        // Track loaded subtitle
+        if (!loadedSubtitlePaths.contains(subtitleUrl)) {
+            loadedSubtitlePaths.add(subtitleUrl)
+        }
         
         handler.postDelayed({
             // For local files, use the Media Option Restart strategy
