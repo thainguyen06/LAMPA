@@ -1552,8 +1552,8 @@ class PlayerActivity : BaseActivity() {
                 }
                 subtitlePath.startsWith("/") -> {
                     // Local file path - convert to proper URI
-                    // File existence already validated above, reuse the File object
-                    // subtitleFile is guaranteed to be non-null here because it's checked in the earlier if block
+                    // File existence already validated above
+                    // Reuse cached File object for efficiency, with fallback for defensive programming
                     Uri.fromFile(subtitleFile ?: File(subtitlePath)).toString()
                 }
                 else -> {
