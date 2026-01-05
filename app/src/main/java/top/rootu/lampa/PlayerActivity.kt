@@ -1525,8 +1525,9 @@ class PlayerActivity : BaseActivity() {
             val previousTrackId = mediaPlayer?.spuTrack ?: NO_TRACK_SELECTED
             
             // For local file paths, verify file exists before proceeding
+            var subtitleFile: File? = null
             if (subtitlePath.startsWith("/")) {
-                val subtitleFile = File(subtitlePath)
+                subtitleFile = File(subtitlePath)
                 if (!subtitleFile.exists()) {
                     Log.e(TAG, "Subtitle file does not exist: $subtitlePath")
                     SubtitleDebugHelper.logError("PlayerActivity", "Subtitle file not found: $subtitlePath")
@@ -1551,8 +1552,8 @@ class PlayerActivity : BaseActivity() {
                 }
                 subtitlePath.startsWith("/") -> {
                     // Local file path - convert to proper URI
-                    // File existence already validated above
-                    Uri.fromFile(File(subtitlePath)).toString()
+                    // File existence already validated above, reuse the File object
+                    Uri.fromFile(subtitleFile!!).toString()
                 }
                 else -> {
                     // Unknown format
