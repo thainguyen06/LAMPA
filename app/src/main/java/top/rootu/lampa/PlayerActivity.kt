@@ -146,6 +146,7 @@ class PlayerActivity : BaseActivity() {
         private const val SUBTITLE_TRACK_REGISTRATION_DELAY_MS = 5000L // 5 seconds - Wait for subtitle track to register after addSlave (increased to handle larger files and slower devices)
         private const val SUBTITLE_TRACK_RETRY_DELAY_MS = 3000L // 3 seconds - Delay between subtitle track selection retries (increased for better reliability)
         private const val SUBTITLE_TRACK_MAX_RETRIES = 8 // Maximum retries for subtitle track selection (increased to allow more time for VLC processing)
+        private const val MEDIA_RESTART_SEEK_DELAY_MS = 1000L // 1 second - Wait for media to initialize before seeking after restart
         private const val NO_TRACK_SELECTED = -1 // VLC track ID indicating no track is selected
         private const val SYSTEM_TIME_UPDATE_INTERVAL = 60000L // 1 minute
         private const val MAX_RETRY_ATTEMPTS = 3 // Maximum number of retry attempts for network errors
@@ -1430,7 +1431,7 @@ class PlayerActivity : BaseActivity() {
     }
     
     /**
-     * STRATEGY A: Force load subtitle using Media.addOption() method
+     * STRATEGY A: Force load subtitle using Media's addOption() method
      * 
      * This is the most robust fallback strategy when addSlave() fails silently.
      * It restarts the media with the subtitle file attached via VLC command-line option.
@@ -1442,7 +1443,13 @@ class PlayerActivity : BaseActivity() {
      * 4. Creates a new Media object with :sub-file option
      * 5. Restarts playback from the stored position
      * 
+     * Requirements:
+     * - The videoUrl class variable must be set before calling this function
+     * - libVLC instance must be initialized
+     * - mediaPlayer instance must be initialized
+     * 
      * @param path The absolute file path to the subtitle file (e.g., /storage/emulated/0/Android/data/.../subtitle.srt)
+     *             Can include file:// prefix which will be stripped automatically.
      * @return True if the subtitle was successfully configured, false otherwise
      */
     fun forceLoadSubtitle(path: String): Boolean {
@@ -1526,7 +1533,7 @@ class PlayerActivity : BaseActivity() {
                     refreshTracks()
                     SubtitleDebugHelper.logInfo("PlayerActivity", "Track list refreshed after Media restart")
                 }, TRACK_LOADING_DELAY_MS)
-            }, 1000L) // Wait 1 second for media to start before seeking
+            }, MEDIA_RESTART_SEEK_DELAY_MS)
             
             return true
         } catch (e: Exception) {
