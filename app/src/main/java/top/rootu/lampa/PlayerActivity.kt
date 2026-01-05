@@ -329,6 +329,7 @@ class PlayerActivity : BaseActivity() {
                                 player.time = seekTime
                                 updateEndsAtTime()
                             }
+                            Unit
                         } catch (e: Exception) {
                             Log.e(TAG, "Error seeking to position: $progress", e)
                         }
