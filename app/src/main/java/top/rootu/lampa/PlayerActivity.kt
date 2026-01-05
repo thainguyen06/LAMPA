@@ -115,6 +115,9 @@ class PlayerActivity : BaseActivity() {
     // State for reloadVideoWithSubtitle - stores position to restore after media restart
     private var savedPlaybackPosition: Long? = null
     
+    // Store subtitle path for displaying track name after successful load
+    private var lastLoadedSubtitlePath: String? = null
+    
     // Debounce state for searchAndLoadExternalSubtitles
     private var lastSubtitleSearchTimestamp: Long = 0
     private val subtitleSearchDebounceMs = 2000L // 2 seconds debounce window
@@ -155,6 +158,9 @@ class PlayerActivity : BaseActivity() {
         private const val MAX_RETRY_ATTEMPTS = 3 // Maximum number of retry attempts for network errors
         private const val INITIAL_RETRY_DELAY_MS = 2000L // Initial retry delay (2 seconds)
         private const val ERROR_MESSAGE_DISPLAY_TIME_MS = 1000L // Time to display error before closing (1 second)
+        
+        // Regex pattern for detecting generic VLC track names (e.g., "Track 1", "Track 2")
+        private val GENERIC_TRACK_NAME_REGEX = Regex("^Track \\d+$")
         
         // LibVLC 3.6.0 Media event type constants
         // Note: Media class uses integer constants, not a nested Event class like MediaPlayer
@@ -468,6 +474,12 @@ class PlayerActivity : BaseActivity() {
                             
                             runOnUiThread {
                                 refreshTracks()
+                                
+                                // Smart auto-select logic for subtitle tracks
+                                // After Media Option Restart, the external subtitle should be available
+                                if (subtitleCount > 0) {
+                                    autoSelectNewSubtitleTrack()
+                                }
                             }
                         }
                         else -> {}
@@ -1190,6 +1202,114 @@ class PlayerActivity : BaseActivity() {
     }
     
     /**
+     * Smart auto-select logic for newly added external subtitle tracks
+     * 
+     * This function is called after ESAdded event when subtitle tracks are detected.
+     * It finds and selects the most recently added subtitle track (typically the external file),
+     * and displays the track name to the user.
+     * 
+     * Logic:
+     * 1. Get all subtitle tracks from mediaPlayer.spuTracks
+     * 2. Find the track that is NOT disabled (ID != -1)
+     * 3. Prefer the track with the highest ID (usually the newest/external one)
+     * 4. Call mediaPlayer.setSpuTrack(trackId) to select it
+     * 5. Extract and display the track name or filename
+     */
+    private fun autoSelectNewSubtitleTrack() {
+        val player = mediaPlayer ?: return
+        
+        try {
+            // Get all subtitle tracks
+            val spuTracks = player.spuTracks
+            
+            if (spuTracks == null || spuTracks.isEmpty()) {
+                Log.d(TAG, "autoSelectNewSubtitleTrack: No subtitle tracks available")
+                return
+            }
+            
+            Log.d(TAG, "autoSelectNewSubtitleTrack: Found ${spuTracks.size} subtitle track(s)")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "Auto-select: Found ${spuTracks.size} subtitle tracks")
+            
+            // Find the track with the highest ID (excluding disabled track ID -1)
+            // VLC typically assigns higher IDs to more recently added tracks
+            var selectedTrack: MediaPlayer.TrackDescription? = null
+            var highestId = NO_TRACK_SELECTED
+            
+            for (track in spuTracks) {
+                Log.d(TAG, "Subtitle track: ID=${track.id}, Name=${track.name}")
+                SubtitleDebugHelper.logDebug("PlayerActivity", "Track: ID=${track.id}, Name=${track.name}")
+                
+                // Skip disabled track
+                if (track.id == NO_TRACK_SELECTED) {
+                    continue
+                }
+                
+                // Select track with highest ID
+                if (track.id > highestId) {
+                    highestId = track.id
+                    selectedTrack = track
+                }
+            }
+            
+            if (selectedTrack != null) {
+                // Set the subtitle track
+                player.spuTrack = selectedTrack.id
+                
+                Log.i(TAG, "Auto-selected subtitle track: ID=${selectedTrack.id}, Name=${selectedTrack.name}")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "Auto-selected track: ID=${selectedTrack.id}, Name=${selectedTrack.name}")
+                
+                // Display track name to user
+                displaySubtitleTrackName(selectedTrack.name)
+            } else {
+                Log.w(TAG, "autoSelectNewSubtitleTrack: No valid subtitle track found (all tracks disabled)")
+                SubtitleDebugHelper.logWarning("PlayerActivity", "No valid subtitle track to auto-select")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in autoSelectNewSubtitleTrack", e)
+            SubtitleDebugHelper.logError("PlayerActivity", "Exception in auto-select: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Display subtitle track name to the user
+     * 
+     * If the track name is generic (e.g., "Track 1"), extract and show the filename
+     * from the last loaded subtitle path instead.
+     * 
+     * @param trackName The name of the track from VLC
+     */
+    private fun displaySubtitleTrackName(trackName: String?) {
+        try {
+            val displayName = when {
+                // If track name is null or generic, use filename from path
+                trackName.isNullOrBlank() || trackName.matches(GENERIC_TRACK_NAME_REGEX) -> {
+                    lastLoadedSubtitlePath?.let { path ->
+                        // Extract filename from path efficiently
+                        val filename = path.substringAfterLast('/')
+                        Log.d(TAG, "Using filename from path: $filename")
+                        filename
+                    } ?: trackName ?: "Unknown"
+                }
+                // Use the track name as-is if it's descriptive
+                else -> trackName
+            }
+            
+            // Display to user
+            val message = getString(R.string.subtitle_loaded_with_name, displayName)
+            App.toast(message, false)
+            
+            Log.i(TAG, "Displayed subtitle track name: $displayName")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "Displayed track name: $displayName")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error displaying subtitle track name", e)
+            // Fallback to generic message
+            App.toast(R.string.subtitle_loaded, false)
+        }
+    }
+    
+    /**
      * Show subtitle debug menu with options to export logs or trigger diagnostic crash
      */
     private fun showSubtitleDebugMenu() {
@@ -1609,6 +1729,9 @@ class PlayerActivity : BaseActivity() {
             
             Log.d(TAG, "Subtitle file validated: ${subtitleFile.absolutePath}, size: ${subtitleFile.length()} bytes")
             SubtitleDebugHelper.logInfo("PlayerActivity", "File validated, size: ${subtitleFile.length()} bytes")
+            
+            // Store the subtitle path for later display of track name
+            lastLoadedSubtitlePath = subtitleFile.absolutePath
             
             // Step 1: Save State - Get current playback time
             val currentPosition = mediaPlayer?.time ?: 0L

@@ -181,6 +181,7 @@
     <string name="preferred_audio_language">Preferred Audio Language</string>
     <string name="subtitle_settings_gear">Subtitle Settings</string>
     <string name="subtitle_loaded">External subtitle loaded</string>
+    <string name="subtitle_loaded_with_name">Subtitle loaded: %s</string>
     <string name="subtitle_load_failed">Failed to load subtitle</string>
     <!-- Subtitle Debug -->
     <string name="subtitle_debug_title">Subtitle Debug</string>
