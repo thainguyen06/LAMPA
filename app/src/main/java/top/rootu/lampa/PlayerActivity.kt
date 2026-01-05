@@ -146,6 +146,7 @@ class PlayerActivity : BaseActivity() {
         private const val SUBTITLE_TRACK_REGISTRATION_DELAY_MS = 5000L // 5 seconds - Wait for subtitle track to register after addSlave (increased to handle larger files and slower devices)
         private const val SUBTITLE_TRACK_RETRY_DELAY_MS = 3000L // 3 seconds - Delay between subtitle track selection retries (increased for better reliability)
         private const val SUBTITLE_TRACK_MAX_RETRIES = 8 // Maximum retries for subtitle track selection (increased to allow more time for VLC processing)
+        private const val MEDIA_RESTART_SEEK_DELAY_MS = 1000L // 1 second - Wait for media to initialize before seeking after restart
         private const val NO_TRACK_SELECTED = -1 // VLC track ID indicating no track is selected
         private const val SYSTEM_TIME_UPDATE_INTERVAL = 60000L // 1 minute
         private const val MAX_RETRY_ATTEMPTS = 3 // Maximum number of retry attempts for network errors
@@ -1055,7 +1056,14 @@ class PlayerActivity : BaseActivity() {
                         // Use the robust addAndSelectSubtitle function
                         val success = addAndSelectSubtitle(subtitlePath)
                         if (!success) {
-                            App.toast(R.string.subtitle_load_failed, true)
+                            Log.w(TAG, "addAndSelectSubtitle failed, attempting forceLoadSubtitle fallback")
+                            SubtitleDebugHelper.logWarning("PlayerActivity", "Primary strategies failed, trying forceLoadSubtitle")
+                            
+                            // Attempt forceLoadSubtitle as fallback for local files
+                            val forceSuccess = forceLoadSubtitle(subtitlePath)
+                            if (!forceSuccess) {
+                                App.toast(R.string.subtitle_load_failed, true)
+                            }
                         }
                     }
                 } else {
@@ -1073,6 +1081,7 @@ class PlayerActivity : BaseActivity() {
     /**
      * Load subtitle from a direct URL after playback has started
      * This method uses addSlave() which works for already-playing media
+     * If addSlave fails, it will attempt to use forceLoadSubtitle as a fallback
      */
     private fun loadSubtitleFromUrl(subtitleUrl: String) {
         Log.d(TAG, "Loading subtitle from URL: $subtitleUrl")
@@ -1081,7 +1090,18 @@ class PlayerActivity : BaseActivity() {
             // Use the robust addAndSelectSubtitle function
             val success = addAndSelectSubtitle(subtitleUrl)
             if (!success) {
-                App.toast(R.string.subtitle_load_failed, true)
+                Log.w(TAG, "addAndSelectSubtitle failed, attempting forceLoadSubtitle fallback")
+                SubtitleDebugHelper.logWarning("PlayerActivity", "Primary strategies failed, trying forceLoadSubtitle")
+                
+                // Only use forceLoadSubtitle for local files (not URLs)
+                if (subtitleUrl.startsWith("/") || subtitleUrl.startsWith("file://")) {
+                    val forceSuccess = forceLoadSubtitle(subtitleUrl)
+                    if (!forceSuccess) {
+                        App.toast(R.string.subtitle_load_failed, true)
+                    }
+                } else {
+                    App.toast(R.string.subtitle_load_failed, true)
+                }
             }
         }, SUBTITLE_TRACK_REGISTRATION_DELAY_MS)
     }
@@ -1348,18 +1368,48 @@ class PlayerActivity : BaseActivity() {
                 return false
             }
             
-            // Use addSlave to add subtitle to already playing media
-            // Type 0 = Subtitle, 1 = Audio
-            // select = true means VLC should try to auto-select this track
-            val added = mediaPlayer?.addSlave(0, subtitleUri, true)
+            // Try multiple strategies to load the subtitle
+            var added: Boolean? = false
+            var strategyUsed = "None"
             
-            // Log VLC result for debugging
-            Log.d(TAG, "VLC addSlave() Result: ${added ?: false}")
-            SubtitleDebugHelper.logInfo("PlayerActivity", "VLC addSlave() Result: ${added ?: false}")
+            // STRATEGY 1: Standard addSlave with file:// URI
+            added = mediaPlayer?.addSlave(0, subtitleUri, true)
+            strategyUsed = "Standard URI"
+            
+            Log.d(TAG, "VLC addSlave($subtitleUri) Result: ${added ?: false}")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "VLC addSlave() with URI Result: ${added ?: false}")
+            
+            // STRATEGY B: If failed and we have a local file, try raw path without file:// prefix
+            if (added != true && subtitlePath.startsWith("/")) {
+                Log.d(TAG, "Trying STRATEGY B: Raw path without file:// prefix")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "STRATEGY B - Trying raw path: $subtitlePath")
+                
+                added = mediaPlayer?.addSlave(0, subtitlePath, true)
+                strategyUsed = "Raw Path"
+                
+                Log.d(TAG, "VLC addSlave($subtitlePath) with raw path Result: ${added ?: false}")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "STRATEGY B Result: ${added ?: false}")
+            }
+            
+            // STRATEGY C: Try calling addSlave on Media object (before it's released)
+            if (added != true && subtitlePath.startsWith("/")) {
+                Log.d(TAG, "Trying STRATEGY C: Media.addSlave before parsing")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "STRATEGY C - Trying Media.addSlave")
+                
+                try {
+                    // Note: This won't work for already-playing media, but documenting the attempt
+                    // Media.addSlave is typically used before playback starts
+                    Log.w(TAG, "STRATEGY C cannot be applied to already-playing media")
+                    SubtitleDebugHelper.logWarning("PlayerActivity", "STRATEGY C - Media already playing, skipping")
+                } catch (e: Exception) {
+                    Log.e(TAG, "STRATEGY C failed", e)
+                    SubtitleDebugHelper.logError("PlayerActivity", "STRATEGY C exception: ${e.message}", e)
+                }
+            }
             
             if (added == true) {
-                Log.d(TAG, "Subtitle slave added successfully")
-                SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle slave added successfully to LibVLC")
+                Log.d(TAG, "Subtitle slave added successfully using strategy: $strategyUsed")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "Subtitle added successfully via: $strategyUsed")
                 
                 // Wait a moment for the track to be registered, then retry selection
                 // LibVLC needs time to parse and register the new subtitle track
@@ -1369,13 +1419,126 @@ class PlayerActivity : BaseActivity() {
                 
                 return true
             } else {
-                Log.e(TAG, "Failed to add subtitle slave")
-                SubtitleDebugHelper.logError("PlayerActivity", "addSlave() returned false")
+                Log.e(TAG, "Failed to add subtitle slave with all strategies")
+                SubtitleDebugHelper.logError("PlayerActivity", "All addSlave strategies failed - consider using forceLoadSubtitle()")
                 return false
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error adding subtitle to player", e)
             SubtitleDebugHelper.logError("PlayerActivity", "Exception while adding subtitle to player: ${e.message}", e)
+            return false
+        }
+    }
+    
+    /**
+     * STRATEGY A: Force load subtitle using Media's addOption() method
+     * 
+     * This is the most robust fallback strategy when addSlave() fails silently.
+     * It restarts the media with the subtitle file attached via VLC command-line option.
+     * 
+     * This method:
+     * 1. Validates the subtitle file exists
+     * 2. Stores the current playback position
+     * 3. Stops the current media playback
+     * 4. Creates a new Media object with :sub-file option
+     * 5. Restarts playback from the stored position
+     * 
+     * Requirements:
+     * - The videoUrl class variable must be set before calling this function
+     * - libVLC instance must be initialized
+     * - mediaPlayer instance must be initialized
+     * 
+     * @param path The absolute file path to the subtitle file (e.g., /storage/emulated/0/Android/data/.../subtitle.srt)
+     *             Can include file:// prefix which will be stripped automatically.
+     * @return True if the subtitle was successfully configured, false otherwise
+     */
+    fun forceLoadSubtitle(path: String): Boolean {
+        try {
+            Log.d(TAG, "forceLoadSubtitle called with path: $path")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "STRATEGY A - Force loading subtitle via Media option: $path")
+            
+            // Convert to raw path (remove file:// prefix if present)
+            val rawPath = if (path.startsWith("file://")) {
+                path.substring(7) // Remove "file://" prefix
+            } else {
+                path
+            }
+            
+            // Validate file exists
+            val subtitleFile = File(rawPath)
+            if (!subtitleFile.exists()) {
+                Log.e(TAG, "forceLoadSubtitle: Subtitle file does not exist: $rawPath")
+                SubtitleDebugHelper.logError("PlayerActivity", "File not found for Strategy A: $rawPath")
+                return false
+            }
+            
+            Log.d(TAG, "Subtitle file validated: ${subtitleFile.absolutePath}, size: ${subtitleFile.length()} bytes")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "File validated, size: ${subtitleFile.length()} bytes")
+            
+            // Get current playback position and video URL
+            val currentPosition = mediaPlayer?.time ?: 0L
+            val currentVideoUrl = videoUrl ?: run {
+                Log.e(TAG, "forceLoadSubtitle: No video URL available")
+                SubtitleDebugHelper.logError("PlayerActivity", "Cannot restart - no video URL stored")
+                return false
+            }
+            
+            Log.d(TAG, "Storing playback position: ${currentPosition}ms")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "Saving position: ${currentPosition}ms, restarting media")
+            
+            // Get LibVLC instance
+            val vlc = libVLC ?: run {
+                Log.e(TAG, "forceLoadSubtitle: LibVLC not initialized")
+                SubtitleDebugHelper.logError("PlayerActivity", "LibVLC instance is null")
+                return false
+            }
+            
+            // Stop current playback
+            mediaPlayer?.stop()
+            Log.d(TAG, "Stopped current playback")
+            
+            // Create new Media object with subtitle option
+            val newMedia = Media(vlc, Uri.parse(currentVideoUrl)).apply {
+                // Restore existing options
+                addOption(":codec=all")
+                addOption(":network-caching=10000")
+                addOption(":http-reconnect")
+                addOption(":http-continuous")
+                
+                // Add subtitle file using raw absolute path (NO file:// prefix)
+                addOption(":sub-file=${subtitleFile.absolutePath}")
+                Log.d(TAG, "Added :sub-file=${subtitleFile.absolutePath} to Media options")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "Media option set: :sub-file=${subtitleFile.absolutePath}")
+                
+                // Parse media to detect tracks
+                parseAsync()
+            }
+            
+            // Set new media and restart playback
+            mediaPlayer?.media = newMedia
+            newMedia.release()
+            mediaPlayer?.play()
+            
+            Log.d(TAG, "Media restarted with subtitle option")
+            SubtitleDebugHelper.logInfo("PlayerActivity", "Playback restarted with subtitle embedded in Media")
+            
+            // Seek to previous position after a short delay to allow media to initialize
+            handler.postDelayed({
+                mediaPlayer?.time = currentPosition
+                Log.d(TAG, "Seeked to position: ${currentPosition}ms")
+                SubtitleDebugHelper.logInfo("PlayerActivity", "Restored playback position: ${currentPosition}ms")
+                
+                // Refresh tracks after a delay to show the new subtitle track
+                handler.postDelayed({
+                    refreshTracks()
+                    SubtitleDebugHelper.logInfo("PlayerActivity", "Track list refreshed after Media restart")
+                }, TRACK_LOADING_DELAY_MS)
+            }, MEDIA_RESTART_SEEK_DELAY_MS)
+            
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in forceLoadSubtitle", e)
+            SubtitleDebugHelper.logError("PlayerActivity", "Exception in Strategy A: ${e.message}", e)
             return false
         }
     }
