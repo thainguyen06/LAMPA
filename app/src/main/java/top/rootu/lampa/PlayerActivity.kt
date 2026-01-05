@@ -1524,6 +1524,20 @@ class PlayerActivity : BaseActivity() {
             val previousTrackCount = mediaPlayer?.spuTracks?.size ?: 0
             val previousTrackId = mediaPlayer?.spuTrack ?: NO_TRACK_SELECTED
             
+            // For local file paths, verify file exists before proceeding
+            var subtitleFile: File? = null
+            if (subtitlePath.startsWith("/")) {
+                subtitleFile = File(subtitlePath)
+                if (!subtitleFile.exists()) {
+                    Log.e(TAG, "Subtitle file does not exist: $subtitlePath")
+                    SubtitleDebugHelper.logError("PlayerActivity", "Subtitle file not found: $subtitlePath")
+                    return false
+                }
+                
+                Log.d(TAG, "Subtitle file exists: ${subtitleFile.absolutePath}, size: ${subtitleFile.length()} bytes")
+                SubtitleDebugHelper.logDebug("PlayerActivity", "File exists, size: ${subtitleFile.length()} bytes")
+            }
+            
             // Convert file path to proper URI format for LibVLC
             // Note: We use Uri.fromFile() here because LibVLC's native code requires file:// URIs
             // This is internal to VLC and not shared with other apps, so FileProvider is not needed
@@ -1537,19 +1551,10 @@ class PlayerActivity : BaseActivity() {
                     subtitlePath
                 }
                 subtitlePath.startsWith("/") -> {
-                    // Local file path - verify it exists and convert to proper URI
-                    val subtitleFile = File(subtitlePath)
-                    if (!subtitleFile.exists()) {
-                        Log.e(TAG, "Subtitle file does not exist: $subtitlePath")
-                        SubtitleDebugHelper.logError("PlayerActivity", "Subtitle file not found: $subtitlePath")
-                        return false
-                    }
-                    
-                    Log.d(TAG, "Subtitle file exists: ${subtitleFile.absolutePath}, size: ${subtitleFile.length()} bytes")
-                    SubtitleDebugHelper.logDebug("PlayerActivity", "File exists, size: ${subtitleFile.length()} bytes")
-                    
-                    // Convert to file:// URI
-                    Uri.fromFile(subtitleFile).toString()
+                    // Local file path - convert to proper URI
+                    // File existence already validated above
+                    // Reuse cached File object for efficiency, with fallback for defensive programming
+                    Uri.fromFile(subtitleFile ?: File(subtitlePath)).toString()
                 }
                 else -> {
                     // Unknown format
