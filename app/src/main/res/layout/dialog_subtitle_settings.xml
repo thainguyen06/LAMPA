@@ -146,6 +146,69 @@
             android:textSize="16sp" />
     </RadioGroup>
 
+    <!-- Subtitle Sync Section -->
+    <TextView
+        android:id="@+id/subtitle_sync_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/subtitle_sync"
+        android:textColor="#CCCCCC"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <Button
+            android:id="@+id/btn_subtitle_delay_minus"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:text="-"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_button_dialog"
+            android:padding="8dp" />
+
+        <TextView
+            android:id="@+id/tv_subtitle_delay"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="0.0s"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textAlignment="center"
+            android:gravity="center"
+            android:layout_marginHorizontal="16dp" />
+
+        <Button
+            android:id="@+id/btn_subtitle_delay_plus"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:text="+"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_button_dialog"
+            android:padding="8dp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/subtitle_sync_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/subtitle_sync_hint"
+        android:textColor="#999999"
+        android:textSize="12sp"
+        android:layout_marginBottom="16dp"
+        android:gravity="center" />
+
     <!-- Close Button -->
     <Button
         android:id="@+id/btn_apply_subtitle_settings"

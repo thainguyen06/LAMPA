@@ -22,7 +22,8 @@
         android:orientation="horizontal"
         android:padding="16dp"
         android:background="@drawable/exo_controls_background"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:elevation="4dp">
 
         <ImageButton
             android:id="@+id/btn_back"
@@ -41,10 +42,14 @@
             android:layout_weight="1"
             android:layout_marginStart="16dp"
             android:ellipsize="end"
-            android:maxLines="1"
+            android:maxLines="2"
             android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:shadowColor="#80000000"
+            android:shadowDx="1"
+            android:shadowDy="1"
+            android:shadowRadius="2" />
 
         <TextView
             android:id="@+id/tv_system_time"
@@ -54,7 +59,11 @@
             android:text="00:00"
             android:textColor="#FFFFFF"
             android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:shadowColor="#80000000"
+            android:shadowDx="1"
+            android:shadowDy="1"
+            android:shadowRadius="2" />
     </LinearLayout>
 
     <!-- Center controls - Play/Pause and Loading -->
@@ -65,20 +74,22 @@
 
         <ImageButton
             android:id="@+id/btn_play_pause"
-            android:layout_width="80dp"
-            android:layout_height="80dp"
+            android:layout_width="96dp"
+            android:layout_height="96dp"
             android:layout_gravity="center"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:background="@android:drawable/dialog_holo_dark_frame"
             android:contentDescription="@string/exo_controls_play_description"
-            android:padding="16dp"
+            android:padding="24dp"
             android:src="@android:drawable/ic_media_play"
             android:tint="#FFFFFF"
-            android:scaleType="fitCenter" />
+            android:scaleType="fitCenter"
+            android:alpha="0.85"
+            android:elevation="8dp" />
 
         <ProgressBar
             android:id="@+id/loading_spinner"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
             android:layout_gravity="center"
             android:indeterminate="true"
             android:visibility="gone"
@@ -93,14 +104,17 @@
         android:layout_gravity="bottom"
         android:orientation="vertical"
         android:padding="16dp"
-        android:background="@drawable/exo_controls_background">
+        android:background="@drawable/exo_controls_background"
+        android:elevation="4dp">
 
         <!-- Progress bar with full width -->
         <SeekBar
             android:id="@+id/player_seekbar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp" />
+            android:layout_marginBottom="8dp"
+            android:progressDrawable="@android:drawable/progress_horizontal"
+            android:thumb="@android:drawable/btn_star_big_on" />
 
         <!-- Time info row -->
         <LinearLayout
@@ -116,7 +130,11 @@
                 android:layout_height="wrap_content"
                 android:text="00:00:00"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp" />
+                android:textSize="14sp"
+                android:shadowColor="#80000000"
+                android:shadowDx="1"
+                android:shadowDy="1"
+                android:shadowRadius="2" />
 
             <View
                 android:layout_width="0dp"
@@ -129,7 +147,11 @@
                 android:layout_height="wrap_content"
                 android:text="01:30:00 | Ends at 22:45"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp" />
+                android:textSize="14sp"
+                android:shadowColor="#80000000"
+                android:shadowDx="1"
+                android:shadowDy="1"
+                android:shadowRadius="2" />
         </LinearLayout>
 
         <!-- Bottom button row -->

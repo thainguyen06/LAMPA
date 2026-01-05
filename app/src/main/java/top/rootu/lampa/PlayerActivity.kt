@@ -104,6 +104,7 @@ class PlayerActivity : BaseActivity() {
     private var subtitleFontSize = 16 // Medium
     private var subtitleColor = 0xFFFFFF // White
     private var subtitleBackground = 0x00000000 // Transparent
+    private var subtitleDelay: Long = 0 // Subtitle delay in milliseconds (can be negative)
     
     // External subtitle support
     private var subtitleDownloader: SubtitleDownloader? = null
@@ -319,8 +320,19 @@ class PlayerActivity : BaseActivity() {
         seekBar?.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
-                    mediaPlayer?.time = progress.toLong()
-                    updateEndsAtTime()
+                    mediaPlayer?.let { player ->
+                        try {
+                            // Validate the seek position is within valid range
+                            val length = player.length
+                            if (length > 0) {
+                                val seekTime = progress.toLong().coerceIn(0, length)
+                                player.time = seekTime
+                                updateEndsAtTime()
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error seeking to position: $progress", e)
+                        }
+                    }
                 }
             }
 
@@ -838,14 +850,33 @@ class PlayerActivity : BaseActivity() {
         spuTracks.forEachIndexed { index, trackDescription ->
             val trackName = trackDescription.name ?: getString(R.string.track_unknown)
             
+            // Extract filename from track name if it's a path or generic name
+            val displayName = when {
+                // If track name contains a file path, extract just the filename
+                trackName.contains("/") -> {
+                    trackName.substringAfterLast("/").substringBeforeLast(".")
+                }
+                // If track name is generic (e.g., "Track 1"), try to get from lastLoadedSubtitlePath
+                trackName.matches(GENERIC_TRACK_NAME_REGEX) -> {
+                    lastLoadedSubtitlePath?.let { path ->
+                        path.substringAfterLast("/").substringBeforeLast(".")
+                    } ?: trackName
+                }
+                // Otherwise use track name as-is
+                else -> trackName
+            }
+            
             val radioButton = RadioButton(this).apply {
                 id = 2001 + index
                 text = if (isGridMode) {
-                    // In grid mode, show shortened track names
-                    val parts = trackName.split(" - ", " ", limit = 2)
-                    if (parts.isNotEmpty()) parts[0] else trackName
+                    // In grid mode, show shortened names (first 20 chars)
+                    if (displayName.length > 20) {
+                        displayName.substring(0, 17) + "..."
+                    } else {
+                        displayName
+                    }
                 } else {
-                    trackName
+                    displayName
                 }
                 textSize = if (isGridMode) 14f else 16f
                 setTextColor(0xFFFFFFFF.toInt())
@@ -909,6 +940,9 @@ class PlayerActivity : BaseActivity() {
         val fontColorGroup = dialog.findViewById<RadioGroup>(R.id.font_color_group)
         val backgroundGroup = dialog.findViewById<RadioGroup>(R.id.background_group)
         val applyButton = dialog.findViewById<Button>(R.id.btn_apply_subtitle_settings)
+        val btnDelayMinus = dialog.findViewById<Button>(R.id.btn_subtitle_delay_minus)
+        val btnDelayPlus = dialog.findViewById<Button>(R.id.btn_subtitle_delay_plus)
+        val tvSubtitleDelay = dialog.findViewById<TextView>(R.id.tv_subtitle_delay)
         
         // Set current selections
         when (subtitleFontSize) {
@@ -927,6 +961,23 @@ class PlayerActivity : BaseActivity() {
             0x00000000 -> backgroundGroup.check(R.id.background_transparent)
             0xFF000000.toInt() -> backgroundGroup.check(R.id.background_black)
             0x80000000.toInt() -> backgroundGroup.check(R.id.background_semitransparent)
+        }
+        
+        // Display current subtitle delay
+        tvSubtitleDelay?.text = String.format("%.1fs", subtitleDelay / 1000.0)
+        
+        // Subtitle delay adjustment (100ms increments)
+        btnDelayMinus?.setOnClickListener {
+            subtitleDelay -= 100
+            tvSubtitleDelay?.text = String.format("%.1fs", subtitleDelay / 1000.0)
+            applySubtitleDelay()
+        }
+        
+        btnDelayPlus?.setOnClickListener {
+            subtitleDelay += 100
+            tvSubtitleDelay?.text = String.format("%.1fs", subtitleDelay / 1000.0)
+            applySubtitleDelay()
+        }
         }
         
         applyButton.setOnClickListener {
@@ -956,6 +1007,18 @@ class PlayerActivity : BaseActivity() {
         }
         
         dialog.show()
+    }
+    
+    private fun applySubtitleDelay() {
+        mediaPlayer?.let { player ->
+            try {
+                // Apply subtitle delay in microseconds (LibVLC uses microseconds)
+                player.setSpuDelay(subtitleDelay * 1000)
+                Log.d(TAG, "Applied subtitle delay: ${subtitleDelay}ms")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error applying subtitle delay", e)
+            }
+        }
     }
 
     private fun applySubtitleSettings() {

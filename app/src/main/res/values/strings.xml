@@ -183,6 +183,8 @@
     <string name="subtitle_loaded">External subtitle loaded</string>
     <string name="subtitle_loaded_with_name">Subtitle loaded: %s</string>
     <string name="subtitle_load_failed">Failed to load subtitle</string>
+    <string name="subtitle_sync">Subtitle Synchronization</string>
+    <string name="subtitle_sync_hint">Adjust subtitle timing to match video (±0.1s increments)</string>
     <!-- Subtitle Debug -->
     <string name="subtitle_debug_title">Subtitle Debug</string>
     <string name="subtitle_debug_description">Export subtitle loading logs or trigger diagnostic crash for debugging</string>
